@@ -4,10 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SNC 2026 Barranquilla — Asistencia</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-:root {
+:root{
   --primary:#0d2b6b;--primary2:#1640a0;--accent:#e8960f;--accent2:#f5a922;
   --success:#1e8c4a;--danger:#c0392b;--warning:#d68910;
   --bg:#f0f3fa;--card:#fff;--text:#1c2c3b;--muted:#6b7f94;--border:#dce4f0;
@@ -16,267 +18,316 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
 
+/* ── Loader overlay ── */
+#loader{position:fixed;inset:0;background:rgba(13,43,107,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff;gap:16px}
+#loader.hide{display:none}
+.spinner{width:44px;height:44px;border:4px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loader p{font-size:14px;opacity:.8}
+
 /* ── Sidebar ── */
-.sidebar{width:var(--sw);background:var(--primary);position:fixed;inset:0 auto 0 0;display:flex;flex-direction:column;z-index:200;transition:width .2s}
-.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
-.sidebar-logo h2{color:#fff;font-size:15px;font-weight:800;letter-spacing:.3px}
-.sidebar-logo p{color:rgba(255,255,255,.55);font-size:11px;margin-top:3px}
-.nav-menu{flex:1;padding:12px 8px;list-style:none}
+.sidebar{width:var(--sw);background:var(--primary);position:fixed;inset:0 auto 0 0;display:flex;flex-direction:column;z-index:200}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sidebar-logo h2{color:#fff;font-size:15px;font-weight:800}
+.sidebar-logo p{color:rgba(255,255,255,.5);font-size:11px;margin-top:3px}
+.nav-menu{flex:1;padding:10px 8px;list-style:none}
 .nav-item{margin-bottom:2px}
 .nav-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:rgba(255,255,255,.65);cursor:pointer;transition:all .15s;font-size:13.5px;user-select:none}
 .nav-link:hover,.nav-link.active{background:rgba(255,255,255,.12);color:#fff}
 .nav-link.active{background:var(--accent);color:#fff;font-weight:600}
 .nav-link i{width:18px;text-align:center;font-size:14px}
-.sidebar-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);font-size:11px}
+.sidebar-footer{padding:10px 14px;border-top:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.35);font-size:11px}
 
 /* ── Main ── */
 .main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
-.topbar{background:#fff;border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.topbar h1{font-size:18px;font-weight:700}
-.clock-block{text-align:right}
-.clock{font-size:26px;font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums;line-height:1}
-.clock-date{font-size:11px;color:var(--muted);margin-top:2px}
-.content{padding:22px 24px;flex:1}
+.topbar{background:#fff;border-bottom:1px solid var(--border);padding:10px 22px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar h1{font-size:17px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.rt-dot{width:9px;height:9px;border-radius:50%;background:#ccc;transition:background .3s;flex-shrink:0}
+.rt-dot.ok{background:#22c55e}
+.rt-dot.err{background:#ef4444}
+.rt-label{font-size:11px;color:var(--muted)}
+.clock{font-size:24px;font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums;line-height:1}
+.clock-date{font-size:11px;color:var(--muted)}
+.content{padding:20px 22px;flex:1}
 
 /* ── Sections ── */
 .section{display:none}.section.active{display:block}
 
 /* ── Stats ── */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-.stat{background:#fff;border-radius:12px;border:1px solid var(--border);padding:18px 16px}
-.stat-val{font-size:32px;font-weight:800;color:var(--primary);line-height:1}
-.stat-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
-.stat.green .stat-val{color:var(--success)}
-.stat.amber .stat-val{color:var(--warning)}
-.stat.red .stat-val{color:var(--danger)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.stat{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px}
+.stat-val{font-size:30px;font-weight:800;color:var(--primary);line-height:1}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.4px}
+.stat.green .stat-val{color:var(--success)}.stat.amber .stat-val{color:var(--warning)}.stat.red .stat-val{color:var(--danger)}
 
 /* ── Quick Reg ── */
-.reg-hero{background:linear-gradient(135deg,var(--primary) 0%,var(--primary2) 100%);border-radius:16px;padding:28px 28px 24px;margin-bottom:20px;color:#fff}
-.reg-hero h2{font-size:20px;font-weight:700;margin-bottom:4px}
+.reg-hero{background:linear-gradient(135deg,var(--primary),var(--primary2));border-radius:14px;padding:24px;margin-bottom:16px;color:#fff}
+.reg-hero h2{font-size:19px;font-weight:700;margin-bottom:3px}
 .reg-hero p{font-size:13px;opacity:.75}
-.reg-row{display:flex;gap:10px;margin-top:16px}
-.reg-input{flex:1;padding:14px 18px;border-radius:10px;border:none;font-size:18px;outline:none;font-weight:500;color:var(--text)}
+.reg-row{display:flex;gap:8px;margin-top:14px}
+.reg-input{flex:1;padding:13px 16px;border-radius:10px;border:none;font-size:17px;outline:none;font-weight:500;color:var(--text)}
 .reg-input::placeholder{color:#aab}
-.reg-clear{padding:0 18px;border-radius:10px;border:none;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:18px;transition:background .15s}
+.reg-clear{padding:0 16px;border-radius:10px;border:none;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:16px;transition:background .15s}
 .reg-clear:hover{background:rgba(255,255,255,.25)}
-.res-list{margin-top:10px;display:flex;flex-direction:column;gap:7px}
-.res-item{background:rgba(255,255,255,.95);border-radius:10px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--text)}
-.res-main h3{font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+.res-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.res-item{background:rgba(255,255,255,.95);border-radius:10px;padding:12px 15px;display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--text)}
+.res-main h3{font-size:14px;font-weight:600;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .res-main p{font-size:12px;color:var(--muted)}
-.chip{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.chip{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700}
 .chip-code{background:var(--primary);color:#fff}
 .chip-ok{background:#d1fae5;color:#065f46}
 .chip-warn{background:#fee2e2;color:#991b1b}
 
 /* ── Success Banner ── */
-.success-banner{border-radius:14px;padding:24px;text-align:center;margin-bottom:20px;animation:popIn .3s ease;display:none}
-.success-banner.show{display:block}
-.success-banner.ok{background:linear-gradient(135deg,#1a7a42,#27ae60);color:#fff}
-.success-banner.late{background:linear-gradient(135deg,#b7440a,#e05a1a);color:#fff}
+.suc-banner{border-radius:14px;padding:22px;text-align:center;display:none;animation:popIn .25s ease}
+.suc-banner.show{display:block}
+.suc-banner.ok{background:linear-gradient(135deg,#166534,#22c55e);color:#fff}
+.suc-banner.late{background:linear-gradient(135deg,#9a3412,#f97316);color:#fff}
+.suc-banner.notfound{background:linear-gradient(135deg,#991b1b,#ef4444);color:#fff}
 @keyframes popIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
-.sb-icon{font-size:44px;margin-bottom:8px}
-.sb-name{font-size:22px;font-weight:700}
-.sb-time{font-size:16px;margin:6px 0 4px;opacity:.9}
-.sb-fine{font-size:36px;font-weight:800;color:#ffe066}
-.sb-detail{font-size:13px;opacity:.85;margin-top:4px}
+.sb-icon{font-size:42px;margin-bottom:6px}
+.sb-name{font-size:21px;font-weight:700}
+.sb-time{font-size:15px;margin:5px 0 3px;opacity:.9}
+.sb-fine{font-size:34px;font-weight:800;color:#ffe066}
+.sb-detail{font-size:13px;opacity:.85;margin-top:3px}
+
+/* ── QR Scanner ── */
+.scanner-wrap{position:relative;width:100%;max-width:460px;margin:0 auto;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:4/3}
+#qr-video{width:100%;height:100%;object-fit:cover;display:block}
+.scan-reticle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.scan-box{width:200px;height:200px;position:relative}
+.scan-box::before,.scan-box::after,.scan-corner-br,.scan-corner-bl{content:'';position:absolute;width:30px;height:30px;border-color:#fff;border-style:solid}
+.scan-box::before{top:0;left:0;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
+.scan-box::after{top:0;right:0;border-width:3px 3px 0 0;border-radius:0 4px 0 0}
+.scan-corner-br{bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
+.scan-corner-bl{bottom:0;left:0;border-width:0 0 3px 3px;border-radius:0 0 0 4px}
+.scan-line{position:absolute;top:50%;left:4px;right:4px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:scanMove 1.8s ease-in-out infinite}
+@keyframes scanMove{0%,100%{top:15%}50%{top:85%}}
+.scan-status{text-align:center;margin-top:14px;font-size:14px;color:var(--muted);min-height:22px}
+.scan-result-overlay{margin-top:12px}
 
 /* ── Cards ── */
-.card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:20px;margin-bottom:18px}
-.card-title{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:18px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:7px;color:var(--text)}
 .card-title i{color:var(--primary)}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 
 /* ── Buttons ── */
-.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.btn-sm{padding:6px 12px;font-size:12px;border-radius:6px}
-.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary2)}
-.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:var(--accent2)}
-.btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#17703c}
-.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{background:#a93226}
-.btn-ghost{background:var(--border);color:var(--text)}.btn-ghost:hover{background:#c8d5e6}
-.btn-white{background:#fff;color:var(--primary);border:1px solid var(--border)}.btn-white:hover{background:var(--bg)}
-.btn-xl{padding:14px 28px;font-size:15px;border-radius:10px}
-.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:9px 16px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover:not(:disabled){background:var(--primary2)}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover:not(:disabled){background:var(--accent2)}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover:not(:disabled){background:#17703c}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover:not(:disabled){background:#a93226}
+.btn-ghost{background:var(--border);color:var(--text)}.btn-ghost:hover:not(:disabled){background:#c8d5e6}
+.btn-row{display:flex;gap:7px;flex-wrap:wrap}
+.btn-scan-big{width:100%;max-width:460px;margin:14px auto;display:flex;padding:16px;font-size:15px;border-radius:12px;justify-content:center}
 
 /* ── Forms ── */
-.form-group{margin-bottom:14px}
-.form-group label{display:block;font-size:12px;font-weight:700;margin-bottom:5px;color:var(--text);text-transform:uppercase;letter-spacing:.4px}
+.form-group{margin-bottom:13px}
+.form-group label{display:block;font-size:11.5px;font-weight:700;margin-bottom:4px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
 .form-control{width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);font-size:14px;outline:none;transition:border-color .15s;background:#fff;color:var(--text)}
 .form-control:focus{border-color:var(--primary2)}
-.form-inline{display:flex;gap:8px;align-items:flex-end}
-.form-inline .form-group{flex:1;margin-bottom:0}
 
 /* ── Table ── */
 .tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border)}
 table{width:100%;border-collapse:collapse}
 thead tr{background:var(--bg)}
-th{padding:9px 13px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
-td{padding:11px 13px;font-size:13.5px;border-bottom:1px solid var(--border)}
+th{padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;font-size:13px;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:#f8faff}
 
 /* ── Badges ── */
-.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
-.b-ok{background:#d1fae5;color:#065f46}
-.b-warn{background:#fef3c7;color:#92400e}
-.b-danger{background:#fee2e2;color:#991b1b}
-.b-info{background:#dbeafe;color:#1e40af}
-.b-gray{background:#f3f4f6;color:#374151}
-.code-tag{font-family:monospace;font-size:14px;font-weight:800;background:var(--bg);border:1px solid var(--border);padding:3px 9px;border-radius:6px;color:var(--primary);letter-spacing:1px}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+.b-ok{background:#d1fae5;color:#065f46}.b-warn{background:#fef3c7;color:#92400e}
+.b-danger{background:#fee2e2;color:#991b1b}.b-info{background:#dbeafe;color:#1e40af}.b-gray{background:#f3f4f6;color:#374151}
+.code-tag{font-family:monospace;font-size:13px;font-weight:800;background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:5px;color:var(--primary);letter-spacing:1px}
 
 /* ── Filter bar ── */
-.fbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
-.fbar input,.fbar select{padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;outline:none;background:#fff}
-.fbar input{flex:1;min-width:180px}.fbar input:focus,.fbar select:focus{border-color:var(--primary2)}
+.fbar{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
+.fbar input,.fbar select{padding:7px 11px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;outline:none;background:#fff}
+.fbar input{flex:1;min-width:160px}.fbar input:focus,.fbar select:focus{border-color:var(--primary2)}
 
 /* ── Jornada card ── */
-.jcard{border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;background:#fff}
-.jcard:hover{border-color:var(--primary2);background:#f8faff}
-.jcard-time{font-size:22px;font-weight:800;color:var(--primary);min-width:70px;font-variant-numeric:tabular-nums}
+.jcard{border:1.5px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:9px;display:flex;align-items:center;gap:12px;background:#fff}
+.jcard-time{font-size:20px;font-weight:800;color:var(--primary);min-width:65px;font-variant-numeric:tabular-nums}
 .jcard-info{flex:1}
 .jcard-info h3{font-size:14px;font-weight:700}
 .jcard-info p{font-size:12px;color:var(--muted);margin-top:2px}
 
-/* ── Import drop zone ── */
-.drop-zone{border:2.5px dashed var(--border);border-radius:12px;padding:36px;text-align:center;cursor:pointer;transition:all .2s;color:var(--muted)}
-.drop-zone:hover{border-color:var(--primary2);background:#f0f4ff;color:var(--primary)}
-.drop-zone i{font-size:40px;margin-bottom:10px;display:block}
-.drop-zone h3{font-size:15px;font-weight:600}
-.drop-zone p{font-size:12px;margin-top:4px}
+/* ── Codes / QR ── */
+.codes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.code-card{border:2px solid var(--border);border-radius:10px;padding:12px 10px;text-align:center;background:#fff;page-break-inside:avoid}
+.code-card img{display:block;margin:0 auto 6px}
+.big-code{font-size:30px;font-weight:900;color:var(--primary);font-family:monospace;letter-spacing:3px}
+.cc-name{font-size:12px;font-weight:600;color:var(--text);margin-top:3px}
+.cc-info{font-size:10px;color:var(--muted);margin-top:1px}
 
-/* ── Modals ── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:14px}
 .overlay.show{display:flex}
-.modal{background:#fff;border-radius:16px;padding:26px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
-.modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
-.modal-hdr h2{font-size:17px;font-weight:700}
-.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 6px;border-radius:6px}
-.modal-close:hover{background:var(--bg);color:var(--text)}
-.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.modal{background:#fff;border-radius:14px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 16px 50px rgba(0,0,0,.2)}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.modal-hdr h2{font-size:16px;font-weight:700}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:2px 5px;border-radius:5px}
+.modal-close:hover{background:var(--bg)}
+.modal-footer{display:flex;justify-content:flex-end;gap:7px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
 
 /* ── Alert ── */
-.alert{padding:11px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start;line-height:1.5}
-.alert i{margin-top:2px;flex-shrink:0}
+.alert{padding:10px 13px;border-radius:8px;font-size:13px;margin-bottom:13px;display:flex;gap:8px;align-items:flex-start;line-height:1.5}
+.alert i{margin-top:1px;flex-shrink:0}
 .a-info{background:#eff6ff;color:#1e40af;border-left:3px solid #3b82f6}
-.a-success{background:#f0fdf4;color:#166534;border-left:3px solid #22c55e}
 .a-warn{background:#fffbeb;color:#92400e;border-left:3px solid #f59e0b}
-.a-danger{background:#fef2f2;color:#991b1b;border-left:3px solid #ef4444}
 
-/* ── Print codes ── */
-@media print{
-  .sidebar,.topbar,.no-print{display:none!important}
-  .main{margin-left:0}
-  .codes-grid{display:grid!important;grid-template-columns:repeat(4,1fr);gap:12px}
-  .code-card{border:1px solid #ccc;border-radius:8px;padding:12px;page-break-inside:avoid}
-}
-.codes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.code-card{border:2px solid var(--border);border-radius:10px;padding:14px;text-align:center;background:#fff}
-.code-card .big-code{font-size:36px;font-weight:900;color:var(--primary);font-family:monospace;letter-spacing:3px}
-.code-card .cc-name{font-size:12px;color:var(--text);margin-top:4px;font-weight:600}
-.code-card .cc-info{font-size:10px;color:var(--muted);margin-top:2px}
+/* ── Pag ── */
+.pag{display:flex;gap:3px;margin-top:10px;justify-content:center;flex-wrap:wrap}
+.pag-btn{padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:12px}
+.pag-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* ── Misc ── */
+.sep{height:1px;background:var(--border);margin:14px 0}
 
 /* ── Responsive ── */
 @media(max-width:900px){
-  .sidebar{width:58px}.sidebar-logo h2,.sidebar-logo p,.nav-link span,.sidebar-footer{display:none}
-  .main{margin-left:58px}.stats{grid-template-columns:1fr 1fr}.grid2,.grid3{grid-template-columns:1fr}
+  .sidebar{width:56px}.sidebar-logo h2,.sidebar-logo p,.nav-link span,.sidebar-footer{display:none}
+  .main{margin-left:56px}.stats{grid-template-columns:1fr 1fr}.grid2,.grid3{grid-template-columns:1fr}
 }
-@media(max-width:600px){
-  .stats{grid-template-columns:1fr}.reg-row{flex-direction:column}.content{padding:14px}
-}
+@media(max-width:580px){.stats{grid-template-columns:1fr}.reg-row{flex-direction:column}.content{padding:12px 14px}}
 
-/* ── Misc ── */
-.sep{height:1px;background:var(--border);margin:16px 0}
-.fine-table td:last-child{font-weight:700;color:var(--danger)}
-.pag{display:flex;gap:4px;margin-top:12px;justify-content:center}
-.pag-btn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:12px}
-.pag-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+/* ── Print (credenciales) ── */
+@media print{
+  .sidebar,.topbar,.no-print{display:none!important}
+  .main{margin-left:0}
+  .codes-grid{display:grid!important;grid-template-columns:repeat(4,1fr);gap:8px}
+  .code-card{border:1px solid #ccc}
+}
 </style>
 </head>
 <body>
 
-<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<!-- ═══ LOADER ═══ -->
+<div id="loader">
+  <div class="spinner"></div>
+  <p id="loader-txt">Conectando con Supabase…</p>
+</div>
+
+<!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
   <div class="sidebar-logo">
     <h2><i class="fas fa-calendar-check" style="margin-right:6px"></i>SNC 2026</h2>
     <p>Sistema de Asistencia · BQ</p>
   </div>
   <ul class="nav-menu" id="nav-menu">
-    <li class="nav-item"><div class="nav-link active" data-sec="dashboard"><i class="fas fa-bolt"></i><span>Registro rápido</span></div></li>
-    <li class="nav-item"><div class="nav-link" data-sec="asistentes"><i class="fas fa-users"></i><span>Asistentes</span></div></li>
-    <li class="nav-item"><div class="nav-link" data-sec="jornadas"><i class="fas fa-clock"></i><span>Jornadas</span></div></li>
-    <li class="nav-item"><div class="nav-link" data-sec="log"><i class="fas fa-list-check"></i><span>Asistencias</span></div></li>
-    <li class="nav-item"><div class="nav-link" data-sec="reportes"><i class="fas fa-chart-bar"></i><span>Reportes</span></div></li>
-    <li class="nav-item"><div class="nav-link" data-sec="codigos"><i class="fas fa-qrcode"></i><span>Códigos</span></div></li>
-    <li class="nav-item"><div class="nav-link" data-sec="config"><i class="fas fa-gear"></i><span>Configuración</span></div></li>
+    <li><div class="nav-link active" data-sec="dashboard"><i class="fas fa-bolt"></i><span>Registro rápido</span></div></li>
+    <li><div class="nav-link" data-sec="scanner"><i class="fas fa-qrcode"></i><span>Escáner QR</span></div></li>
+    <li><div class="nav-link" data-sec="asistentes"><i class="fas fa-users"></i><span>Asistentes</span></div></li>
+    <li><div class="nav-link" data-sec="jornadas"><i class="fas fa-clock"></i><span>Jornadas</span></div></li>
+    <li><div class="nav-link" data-sec="log"><i class="fas fa-list-check"></i><span>Asistencias</span></div></li>
+    <li><div class="nav-link" data-sec="reportes"><i class="fas fa-chart-bar"></i><span>Reportes</span></div></li>
+    <li><div class="nav-link" data-sec="codigos"><i class="fas fa-id-card"></i><span>Credenciales QR</span></div></li>
+    <li><div class="nav-link" data-sec="config"><i class="fas fa-gear"></i><span>Configuración</span></div></li>
   </ul>
   <div class="sidebar-footer">SNC 2026 Barranquilla</div>
 </aside>
 
-<!-- ═══════════════ MAIN ═══════════════ -->
+<!-- ═══ MAIN ═══ -->
 <main class="main">
   <div class="topbar">
     <h1 id="page-title">Registro Rápido</h1>
-    <div class="clock-block">
-      <div class="clock" id="clock">00:00:00</div>
-      <div class="clock-date" id="clock-date"></div>
+    <div class="topbar-right">
+      <div id="rt-dot" class="rt-dot" title="Estado conexión"></div>
+      <span class="rt-label" id="rt-label">Conectando…</span>
+      <div style="text-align:right">
+        <div class="clock" id="clock">00:00:00</div>
+        <div class="clock-date" id="clock-date"></div>
+      </div>
     </div>
   </div>
 
   <div class="content">
 
-    <!-- ══ DASHBOARD / REGISTRO RÁPIDO ══ -->
+    <!-- ══ DASHBOARD ══ -->
     <div id="sec-dashboard" class="section active">
       <div class="stats">
-        <div class="stat"><div class="stat-val" id="st-total">0</div><div class="stat-lbl">Total asistentes</div></div>
-        <div class="stat green"><div class="stat-val" id="st-hoy">0</div><div class="stat-lbl">Registrados hoy</div></div>
-        <div class="stat amber"><div class="stat-val" id="st-pend">0</div><div class="stat-lbl">Sin registrar hoy</div></div>
-        <div class="stat red"><div class="stat-val" id="st-multas">$0</div><div class="stat-lbl">Multas acumuladas</div></div>
+        <div class="stat"><div class="stat-val" id="st-total">—</div><div class="stat-lbl">Total asistentes</div></div>
+        <div class="stat green"><div class="stat-val" id="st-hoy">—</div><div class="stat-lbl">Registrados hoy</div></div>
+        <div class="stat amber"><div class="stat-val" id="st-pend">—</div><div class="stat-lbl">Sin registrar hoy</div></div>
+        <div class="stat red"><div class="stat-val" id="st-multas">—</div><div class="stat-lbl">Multas acumuladas</div></div>
       </div>
 
-      <!-- Quick reg -->
       <div class="reg-hero">
         <h2><i class="fas fa-bolt"></i> Registro de Asistencia</h2>
-        <p>Escribe cédula, nombre o código de 4 dígitos → Enter para registrar</p>
+        <p>Escribe cédula, nombre o código de 4 dígitos → Enter para registrar al primero</p>
         <div class="reg-row">
-          <input type="text" id="qs-input" class="reg-input" placeholder="Cédula · Nombre · Código…"
-                 autocomplete="off" inputmode="numeric">
-          <button class="reg-clear" id="qs-clear" title="Limpiar"><i class="fas fa-times"></i></button>
+          <input type="text" id="qs-input" class="reg-input" placeholder="Cédula · Nombre · Código…" autocomplete="off" inputmode="numeric">
+          <button class="reg-clear" id="qs-clear"><i class="fas fa-times"></i></button>
         </div>
         <div class="res-list" id="qs-results"></div>
       </div>
 
-      <!-- Session selector on dashboard -->
-      <div class="card" style="padding:14px 18px">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Jornada activa</label>
-          <select class="form-control" id="qs-jornada" style="flex:1;max-width:380px"></select>
+      <div class="card" style="padding:12px 16px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Jornada activa</label>
+          <select class="form-control" id="qs-jornada" style="flex:1;max-width:360px"></select>
           <span style="font-size:12px;color:var(--muted)" id="qs-jornada-info"></span>
         </div>
       </div>
 
-      <!-- Success banner -->
-      <div class="success-banner" id="sb1"></div>
+      <div class="suc-banner" id="sb-dash"></div>
+    </div>
+
+    <!-- ══ ESCÁNER QR ══ -->
+    <div id="sec-scanner" class="section">
+      <div class="alert a-info no-print">
+        <i class="fas fa-circle-info"></i>
+        <div>Usa la cámara trasera del celular para escanear el QR de la credencial. El registro es automático al detectar el código.</div>
+      </div>
+
+      <div style="max-width:460px;margin:0 auto">
+        <div class="card" style="padding:14px 16px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Jornada</label>
+            <select class="form-control" id="scan-jornada" style="flex:1"></select>
+          </div>
+        </div>
+
+        <div class="scanner-wrap" id="scanner-wrap">
+          <video id="qr-video" autoplay playsinline muted></video>
+          <div class="scan-reticle">
+            <div class="scan-box">
+              <div class="scan-corner-br"></div>
+              <div class="scan-corner-bl"></div>
+              <div class="scan-line"></div>
+            </div>
+          </div>
+        </div>
+        <div class="scan-status" id="qr-status-msg">Cámara no iniciada</div>
+
+        <button class="btn btn-primary btn-scan-big no-print" id="btn-scan-toggle" onclick="toggleScanner()">
+          <i class="fas fa-camera"></i> Activar cámara
+        </button>
+
+        <div class="suc-banner" id="sb-scanner"></div>
+      </div>
     </div>
 
     <!-- ══ ASISTENTES ══ -->
     <div id="sec-asistentes" class="section">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
-        <h2 style="font-size:17px;font-weight:700">Gestión de Asistentes</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <h2 style="font-size:16px;font-weight:700">Gestión de Asistentes</h2>
         <div class="btn-row">
-          <button class="btn btn-ghost" onclick="document.getElementById('import-input').click()">
-            <i class="fas fa-file-excel"></i> Importar Excel/CSV
-          </button>
+          <button class="btn btn-ghost" onclick="document.getElementById('import-input').click()"><i class="fas fa-file-excel"></i> Importar Excel/CSV</button>
           <input type="file" id="import-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarAsistentes(this)">
-          <button class="btn btn-primary" onclick="openModalAsistente()">
-            <i class="fas fa-plus"></i> Nuevo asistente
-          </button>
+          <button class="btn btn-primary" onclick="openModalAsistente()"><i class="fas fa-plus"></i> Nuevo</button>
         </div>
       </div>
-
       <div class="card">
         <div class="fbar">
-          <input type="text" id="fa-search" placeholder="Buscar por nombre, cédula o código…" oninput="renderAsistentes()">
+          <input type="text" id="fa-search" placeholder="Buscar…" oninput="renderAsistentes()">
           <select id="fa-cap" onchange="renderAsistentes()"><option value="">Todos los capítulos</option></select>
           <button class="btn btn-ghost btn-sm" onclick="exportAsistentesCSV()"><i class="fas fa-download"></i> CSV</button>
           <button class="btn btn-ghost btn-sm" onclick="descargarPlantilla()"><i class="fas fa-table"></i> Plantilla</button>
@@ -289,34 +340,30 @@ tbody tr:hover td{background:#f8faff}
         </div>
         <div class="pag" id="pag-asistentes"></div>
       </div>
-
       <div class="card">
         <div class="card-title"><i class="fas fa-info-circle"></i> Formato de importación</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:10px">El archivo debe tener las columnas: <code>cedula</code>, <code>nombre</code>, <code>apellidos</code>, <code>capitulo</code>. La cédula es el identificador único.</p>
-        <button class="btn btn-ghost btn-sm" onclick="descargarPlantilla()"><i class="fas fa-download"></i> Descargar plantilla Excel</button>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Columnas requeridas: <code>cedula</code>, <code>nombre</code>, <code>apellidos</code>, <code>capitulo</code></p>
+        <button class="btn btn-ghost btn-sm" onclick="descargarPlantilla()"><i class="fas fa-download"></i> Descargar plantilla</button>
       </div>
     </div>
 
     <!-- ══ JORNADAS ══ -->
     <div id="sec-jornadas" class="section">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <h2 style="font-size:17px;font-weight:700">Jornadas del Evento</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <h2 style="font-size:16px;font-weight:700">Jornadas del Evento</h2>
         <button class="btn btn-primary" onclick="openModalJornada()"><i class="fas fa-plus"></i> Nueva jornada</button>
       </div>
-      <div class="alert a-info">
-        <i class="fas fa-info-circle"></i>
-        <div>Define las jornadas con su hora de inicio. El sistema calcula automáticamente los minutos de retraso y aplica <strong>$<span id="j-multa-display">600</span>/min</strong>. Cualquier registro antes de la hora de inicio se marca como <em>a tiempo</em>.</div>
-      </div>
+      <div class="alert a-info"><i class="fas fa-info-circle"></i><div>Multa por retraso: <strong>$<span id="j-multa-display">600</span>/min</strong>. El sistema calcula automáticamente al registrar.</div></div>
       <div id="lista-jornadas"></div>
     </div>
 
-    <!-- ══ LOG ASISTENCIAS ══ -->
+    <!-- ══ LOG ══ -->
     <div id="sec-log" class="section">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
-        <h2 style="font-size:17px;font-weight:700">Registro de Asistencias</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <h2 style="font-size:16px;font-weight:700">Registro de Asistencias</h2>
         <div class="btn-row">
           <button class="btn btn-accent" onclick="exportAsistenciaExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
-          <button class="btn btn-ghost" onclick="exportMultasCSV()"><i class="fas fa-gavel"></i> Solo multas CSV</button>
+          <button class="btn btn-ghost" onclick="exportMultasCSV()"><i class="fas fa-gavel"></i> Multas CSV</button>
         </div>
       </div>
       <div class="card">
@@ -324,11 +371,7 @@ tbody tr:hover td{background:#f8faff}
           <input type="text" id="fl-search" placeholder="Buscar asistente…" oninput="renderLog()">
           <select id="fl-jornada" onchange="renderLog()"><option value="">Todas las jornadas</option></select>
           <select id="fl-fecha" onchange="renderLog()"><option value="">Todas las fechas</option></select>
-          <select id="fl-estado" onchange="renderLog()">
-            <option value="">Todos</option>
-            <option value="ok">A tiempo</option>
-            <option value="tarde">Con multa</option>
-          </select>
+          <select id="fl-estado" onchange="renderLog()"><option value="">Todos</option><option value="ok">A tiempo</option><option value="tarde">Con multa</option></select>
         </div>
         <div class="tbl-wrap">
           <table>
@@ -342,17 +385,17 @@ tbody tr:hover td{background:#f8faff}
 
     <!-- ══ REPORTES ══ -->
     <div id="sec-reportes" class="section">
-      <h2 style="font-size:17px;font-weight:700;margin-bottom:18px">Reportes y Estadísticas</h2>
+      <h2 style="font-size:16px;font-weight:700;margin-bottom:16px">Reportes y Estadísticas</h2>
       <div class="stats">
-        <div class="stat"><div class="stat-val" id="rp-reg">0</div><div class="stat-lbl">Total registros</div></div>
-        <div class="stat green"><div class="stat-val" id="rp-pct">0%</div><div class="stat-lbl">A tiempo</div></div>
-        <div class="stat red"><div class="stat-val" id="rp-multas">$0</div><div class="stat-lbl">Total multas</div></div>
-        <div class="stat amber"><div class="stat-val" id="rp-prom">$0</div><div class="stat-lbl">Multa promedio</div></div>
+        <div class="stat"><div class="stat-val" id="rp-reg">—</div><div class="stat-lbl">Total registros</div></div>
+        <div class="stat green"><div class="stat-val" id="rp-pct">—</div><div class="stat-lbl">A tiempo</div></div>
+        <div class="stat red"><div class="stat-val" id="rp-multas">—</div><div class="stat-lbl">Total multas</div></div>
+        <div class="stat amber"><div class="stat-val" id="rp-prom">—</div><div class="stat-lbl">Multa promedio</div></div>
       </div>
       <div class="grid2">
         <div class="card">
           <div class="card-title"><i class="fas fa-building"></i> Por capítulo</div>
-          <div class="tbl-wrap"><table><thead><tr><th>Capítulo</th><th>Asistentes</th><th>Registros</th><th>Total multas</th></tr></thead><tbody id="tb-cap"></tbody></table></div>
+          <div class="tbl-wrap"><table><thead><tr><th>Capítulo</th><th>Asistentes</th><th>Registros</th><th>Multas</th></tr></thead><tbody id="tb-cap"></tbody></table></div>
         </div>
         <div class="card">
           <div class="card-title"><i class="fas fa-clock"></i> Por jornada</div>
@@ -360,7 +403,7 @@ tbody tr:hover td{background:#f8faff}
         </div>
       </div>
       <div class="card">
-        <div class="card-title"><i class="fas fa-download"></i> Exportar datos</div>
+        <div class="card-title"><i class="fas fa-download"></i> Exportar</div>
         <div class="btn-row">
           <button class="btn btn-accent" onclick="exportAsistenciaExcel()"><i class="fas fa-file-excel"></i> Asistencia completa (Excel)</button>
           <button class="btn btn-ghost" onclick="exportAsistentesCSV()"><i class="fas fa-file-csv"></i> Asistentes (CSV)</button>
@@ -369,116 +412,92 @@ tbody tr:hover td{background:#f8faff}
       </div>
     </div>
 
-    <!-- ══ CÓDIGOS ══ -->
+    <!-- ══ CREDENCIALES QR ══ -->
     <div id="sec-codigos" class="section">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
-        <h2 style="font-size:17px;font-weight:700">Códigos de Asistentes</h2>
-        <div class="btn-row">
-          <input type="text" class="form-control" id="fc-search" placeholder="Filtrar…" oninput="renderCodigos()" style="width:200px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <h2 style="font-size:16px;font-weight:700">Credenciales QR</h2>
+        <div class="btn-row no-print">
+          <input type="text" class="form-control" id="fc-search" placeholder="Filtrar…" oninput="renderCodigos()" style="width:180px">
           <button class="btn btn-ghost" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
         </div>
       </div>
-      <div class="alert a-info" style="margin-bottom:16px">
-        <i class="fas fa-info-circle"></i>
-        <div>Cada asistente tiene un <strong>código único de 4 dígitos</strong>. Imprime esta lista y entrégala a los participantes para agilizar el registro. También puedes buscar por cédula completa.</div>
-      </div>
+      <div class="alert a-info no-print"><i class="fas fa-info-circle"></i><div>Cada asistente tiene un QR que codifica su <strong>cédula</strong>. Imprímelo en la credencial del evento. El escáner lo lee en menos de 1 segundo.</div></div>
       <div class="codes-grid" id="codes-grid"></div>
+      <div id="codes-loading" style="text-align:center;color:var(--muted);padding:30px;display:none"><div class="spinner" style="margin:0 auto 10px"></div>Generando QR codes…</div>
     </div>
 
     <!-- ══ CONFIGURACIÓN ══ -->
     <div id="sec-config" class="section">
-      <h2 style="font-size:17px;font-weight:700;margin-bottom:18px">Configuración</h2>
+      <h2 style="font-size:16px;font-weight:700;margin-bottom:16px">Configuración</h2>
       <div class="card">
-        <div class="card-title"><i class="fas fa-gavel"></i> Reglas de multas por tiempo</div>
+        <div class="card-title"><i class="fas fa-gavel"></i> Reglas de multas</div>
         <div class="grid2">
-          <div class="form-group">
-            <label>Multa por minuto tardío ($)</label>
-            <input type="number" class="form-control" id="cfg-min" value="600" min="0" onchange="saveConfig()">
-          </div>
-          <div class="form-group">
-            <label>Extra primera acreditación del día ($)</label>
-            <input type="number" class="form-control" id="cfg-kit" value="900" min="0" onchange="saveConfig()">
-          </div>
+          <div class="form-group"><label>Multa por minuto tardío ($)</label><input type="number" class="form-control" id="cfg-min" value="600" min="0" onchange="saveConfig()"></div>
+          <div class="form-group"><label>Extra primera acreditación del día ($)</label><input type="number" class="form-control" id="cfg-kit" value="900" min="0" onchange="saveConfig()"></div>
         </div>
-        <div class="alert a-info" style="margin-top:4px">
-          <i class="fas fa-book"></i>
-          <div><strong>SNC 2026 — Resolución de multas (archivo adjunto):</strong> Multa por minuto reducida a <strong>$600/min</strong> para cumplir el límite del 0.15% del valor cupo ($431,932). Cargo adicional de <strong>$900</strong> por acreditación y reclamación extemporánea de kit el primer check-in del día.</div>
-        </div>
+        <div class="alert a-info" style="margin-top:4px"><i class="fas fa-book"></i><div><strong>SNC 2026:</strong> $600/min (límite 0.15% del cupo $431,932) + $900 cargo kit primer check-in del día.</div></div>
       </div>
-
       <div class="card">
-        <div class="card-title"><i class="fas fa-table-list"></i> Tabla de multas SNC 2026 (referencia)</div>
-        <div class="tbl-wrap">
-          <table class="fine-table">
-            <thead><tr><th>Concepto</th><th>Valor recomendado</th><th>Observación</th></tr></thead>
-            <tbody>
-              <tr><td>Minuto tardío</td><td>$600/min</td><td>Reducido de $900 para ≤ 0.15% del cupo</td></tr>
-              <tr><td>Cargo acreditación extemporánea (kit)</td><td>$900</td><td>Custodia/entrega individual fuera del bloque masivo</td></tr>
-              <tr><td>Inasistencia a actividad/espacio</td><td>$50,000</td><td>Reducido de $60,000</td></tr>
-              <tr><td>Inasistencia a visita industrial</td><td>$35,000</td><td>Se mantiene (umbral 40%)</td></tr>
-              <tr><td>Penalización no-show taller SENA</td><td>$150,000</td><td>Reducido de $175,000. Usar término "bloqueo de aforo"</td></tr>
-              <tr><td>Uso de piscinas fuera de horario</td><td>$160,000</td><td>Reducido de $200,000</td></tr>
-              <tr><td>Fuera de instalaciones después del horario</td><td>$170,000</td><td>Reducido de $250,000</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p style="font-size:11px;color:var(--muted);margin-top:10px">Las multas de inasistencia a actividades/jornadas se aplican manualmente desde el log de asistencias (persona no registrada = inasistencia). Las multas por tiempo se calculan automáticamente.</p>
+        <div class="card-title"><i class="fas fa-table-list"></i> Tabla de multas SNC 2026</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Concepto</th><th>Valor</th><th>Nota</th></tr></thead>
+          <tbody>
+            <tr><td>Minuto tardío</td><td><span class="badge b-warn">$600/min</span></td><td>Reducido de $900 para cumplir ≤ 0.15%</td></tr>
+            <tr><td>Cargo kit (primer check-in del día)</td><td><span class="badge b-warn">$900</span></td><td>Custodia entrega individual fuera del bloque</td></tr>
+            <tr><td>Inasistencia a actividad/espacio</td><td><span class="badge b-danger">$50,000</span></td><td>Reducido de $60,000</td></tr>
+            <tr><td>Inasistencia visita industrial</td><td><span class="badge b-danger">$35,000</span></td><td>Se mantiene</td></tr>
+            <tr><td>No-show taller SENA</td><td><span class="badge b-danger">$150,000</span></td><td>"Penalización bloqueo de aforo"</td></tr>
+            <tr><td>Uso piscinas fuera de horario</td><td><span class="badge b-danger">$160,000</span></td><td>Reducido de $200,000</td></tr>
+            <tr><td>Fuera de instalaciones</td><td><span class="badge b-danger">$170,000</span></td><td>Reducido de $250,000</td></tr>
+          </tbody>
+        </table></div>
       </div>
-
       <div class="card" style="border-color:#fecaca">
         <div class="card-title" style="color:var(--danger)"><i class="fas fa-triangle-exclamation"></i> Zona peligrosa</div>
         <div class="btn-row">
-          <button class="btn btn-danger btn-sm" onclick="borrarTodo()"><i class="fas fa-trash"></i> Eliminar todos los datos</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportBackup()"><i class="fas fa-database"></i> Exportar backup JSON</button>
+          <button class="btn btn-danger btn-sm" onclick="borrarTodo()"><i class="fas fa-trash"></i> Borrar todos los datos</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportBackup()"><i class="fas fa-database"></i> Backup JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-backup').click()"><i class="fas fa-upload"></i> Restaurar backup</button>
           <input type="file" id="import-backup" accept=".json" style="display:none" onchange="importBackup(this)">
         </div>
-        <p style="font-size:12px;color:var(--muted);margin-top:8px">Se recomienda exportar un backup al iniciar el evento y al finalizar cada jornada.</p>
       </div>
     </div>
 
-  </div><!-- /content -->
+  </div>
 </main>
 
-<!-- ══════════════ MODAL ASISTENTE ══════════════ -->
+<!-- ══ MODAL ASISTENTE ══ -->
 <div class="overlay" id="modal-asistente">
   <div class="modal">
-    <div class="modal-hdr">
-      <h2 id="ma-title">Nuevo Asistente</h2>
-      <button class="modal-close" onclick="closeModal('modal-asistente')">&times;</button>
-    </div>
-    <div class="form-group"><label>Cédula *</label><input class="form-control" id="ma-cedula" placeholder="123456789" inputmode="numeric"></div>
+    <div class="modal-hdr"><h2 id="ma-title">Nuevo Asistente</h2><button class="modal-close" onclick="closeModal('modal-asistente')">&times;</button></div>
+    <div class="form-group"><label>Cédula *</label><input class="form-control" id="ma-cedula" inputmode="numeric"></div>
     <div class="grid2">
-      <div class="form-group"><label>Nombre *</label><input class="form-control" id="ma-nombre" placeholder="Juan"></div>
-      <div class="form-group"><label>Apellidos *</label><input class="form-control" id="ma-apellidos" placeholder="Pérez García"></div>
+      <div class="form-group"><label>Nombre *</label><input class="form-control" id="ma-nombre"></div>
+      <div class="form-group"><label>Apellidos *</label><input class="form-control" id="ma-apellidos"></div>
     </div>
-    <div class="form-group"><label>Capítulo</label><input class="form-control" id="ma-capitulo" list="cap-datalist" placeholder="Barranquilla"></div>
+    <div class="form-group"><label>Capítulo</label><input class="form-control" id="ma-capitulo" list="cap-datalist"></div>
     <datalist id="cap-datalist"></datalist>
-    <div id="ma-codigo-row" style="display:none;margin-bottom:14px">
-      <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Código asignado</label>
+    <div id="ma-codigo-row" style="display:none;margin-bottom:12px">
+      <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Código asignado</label>
       <span class="code-tag" id="ma-codigo"></span>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-asistente')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveAsistente()"><i class="fas fa-save"></i> Guardar</button>
+      <button class="btn btn-primary" id="ma-save-btn" onclick="saveAsistente()"><i class="fas fa-save"></i> Guardar</button>
     </div>
   </div>
 </div>
 
-<!-- ══════════════ MODAL JORNADA ══════════════ -->
+<!-- ══ MODAL JORNADA ══ -->
 <div class="overlay" id="modal-jornada">
   <div class="modal">
-    <div class="modal-hdr">
-      <h2 id="mj-title">Nueva Jornada</h2>
-      <button class="modal-close" onclick="closeModal('modal-jornada')">&times;</button>
-    </div>
+    <div class="modal-hdr"><h2 id="mj-title">Nueva Jornada</h2><button class="modal-close" onclick="closeModal('modal-jornada')">&times;</button></div>
     <div class="form-group"><label>Nombre *</label><input class="form-control" id="mj-nombre" placeholder="Jornada Mañana — Día 1"></div>
     <div class="grid2">
       <div class="form-group"><label>Fecha *</label><input type="date" class="form-control" id="mj-fecha"></div>
       <div class="form-group"><label>Hora de inicio *</label><input type="time" class="form-control" id="mj-hora"></div>
     </div>
-    <div class="form-group">
-      <label>Tipo</label>
+    <div class="form-group"><label>Tipo</label>
       <select class="form-control" id="mj-tipo">
         <option value="jornada">Jornada (mañana / tarde)</option>
         <option value="actividad">Actividad / Espacio</option>
@@ -488,90 +507,129 @@ tbody tr:hover td{background:#f8faff}
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-jornada')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveJornada()"><i class="fas fa-save"></i> Guardar</button>
+      <button class="btn btn-primary" id="mj-save-btn" onclick="saveJornada()"><i class="fas fa-save"></i> Guardar</button>
     </div>
   </div>
 </div>
 
-<!-- ══════════════ MODAL MULTA MANUAL ══════════════ -->
+<!-- ══ MODAL MULTA MANUAL ══ -->
 <div class="overlay" id="modal-multa">
   <div class="modal">
-    <div class="modal-hdr">
-      <h2>Multa manual</h2>
-      <button class="modal-close" onclick="closeModal('modal-multa')">&times;</button>
-    </div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px" id="mm-nombre-label"></p>
-    <div class="form-group">
-      <label>Concepto</label>
+    <div class="modal-hdr"><h2>Multa manual</h2><button class="modal-close" onclick="closeModal('modal-multa')">&times;</button></div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px" id="mm-label"></p>
+    <div class="form-group"><label>Concepto</label>
       <select class="form-control" id="mm-concepto" onchange="toggleMontoManual()">
-        <option value="50000">Inasistencia a actividad/espacio — $50,000</option>
-        <option value="35000">Inasistencia a visita industrial — $35,000</option>
+        <option value="50000">Inasistencia actividad/espacio — $50,000</option>
+        <option value="35000">Inasistencia visita industrial — $35,000</option>
         <option value="150000">No-show taller SENA — $150,000</option>
         <option value="160000">Uso piscinas fuera de horario — $160,000</option>
         <option value="170000">Fuera de instalaciones — $170,000</option>
         <option value="custom">Otro monto…</option>
       </select>
     </div>
-    <div class="form-group" id="mm-custom-group" style="display:none">
-      <label>Monto ($)</label>
-      <input type="number" class="form-control" id="mm-monto" value="0" min="0">
-    </div>
+    <div class="form-group" id="mm-custom" style="display:none"><label>Monto ($)</label><input type="number" class="form-control" id="mm-monto" value="0" min="0"></div>
     <div class="form-group"><label>Nota (opcional)</label><input class="form-control" id="mm-nota" placeholder="Descripción…"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-multa')">Cancelar</button>
-      <button class="btn btn-danger" onclick="saveMultaManual()"><i class="fas fa-gavel"></i> Aplicar multa</button>
+      <button class="btn btn-danger" id="mm-save-btn" onclick="saveMultaManual()"><i class="fas fa-gavel"></i> Aplicar multa</button>
     </div>
   </div>
 </div>
 
 <script>
 // ══════════════════════════════════════════
-//  DATABASE  (localStorage persistence)
+//  SUPABASE
 // ══════════════════════════════════════════
-const DB_KEY = 'snc2026';
-let DB = { asistentes:[], jornadas:[], registros:[], multas_extra:[], config:{ multaMin:600, multaKit:900 } };
+const SUPA_URL = 'https://rvzchfvaavwaqpoaidft.supabase.co';
+const SUPA_KEY = 'sb_publishable_e8bQrt6xpgFna88DN7fmWQ_vW8Q7g4M';
+const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
-function loadDB(){
-  try{ const s=localStorage.getItem(DB_KEY); if(s) DB=JSON.parse(s); }catch(e){}
-  DB.asistentes  = DB.asistentes  || [];
-  DB.jornadas    = DB.jornadas    || [];
-  DB.registros   = DB.registros   || [];
-  DB.multas_extra= DB.multas_extra|| [];
-  DB.config      = DB.config      || {multaMin:600,multaKit:900};
+// ══════════════════════════════════════════
+//  CACHE (in-memory mirror of DB)
+// ══════════════════════════════════════════
+let C = {
+  asistentes: [],
+  jornadas: [],
+  registros: [],
+  multas_extra: [],
+  config: { multa_min: 600, multa_kit: 900, id: 1 }
+};
+let registrosLoaded = false;
+
+// ══════════════════════════════════════════
+//  LOADER
+// ══════════════════════════════════════════
+function showLoader(msg){ document.getElementById('loader-txt').textContent=msg||'Cargando…'; document.getElementById('loader').classList.remove('hide'); }
+function hideLoader(){ document.getElementById('loader').classList.add('hide'); }
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+async function init(){
+  showLoader('Conectando con Supabase…');
+  try{
+    const [ra,rj,rc] = await Promise.all([
+      db.from('asistentes').select('*').order('nombre'),
+      db.from('jornadas').select('*').order('fecha').order('hora'),
+      db.from('config').select('*').single()
+    ]);
+    if(ra.error) throw ra.error;
+    if(rj.error) throw rj.error;
+    C.asistentes = ra.data || [];
+    C.jornadas   = rj.data || [];
+    if(!rc.error && rc.data) C.config = rc.data;
+
+    // Load today's registros for stats
+    const today = todayStr();
+    const {data:regsHoy} = await db.from('registros').select('*').gte('ts', today+'T00:00:00').order('ts',{ascending:false});
+    C.registros = regsHoy || [];
+
+    setupRealtime();
+    updateStats();
+    buildJornadaSelects();
+    setConnected(true);
+  }catch(e){
+    setConnected(false);
+    document.getElementById('sb-dash').className='suc-banner show notfound';
+    document.getElementById('sb-dash').innerHTML=`<div class="sb-icon">⚠️</div><div class="sb-name">Error de conexión</div><div class="sb-detail">${esc(e.message)}<br><br>Verifica que ejecutaste el setup.sql en Supabase.</div>`;
+  }finally{ hideLoader(); }
 }
-function saveDB(){ localStorage.setItem(DB_KEY,JSON.stringify(DB)); }
 
-function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-
-function genCodigo(){
-  let c,tries=0;
-  do{ c=(1000+Math.floor(Math.random()*9000)).toString(); tries++; }
-  while(DB.asistentes.some(a=>a.codigo===c)&&tries<5000);
-  return c;
+// ══════════════════════════════════════════
+//  REALTIME
+// ══════════════════════════════════════════
+function setupRealtime(){
+  db.channel('snc2026')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'registros'}, p=>{
+      if(!C.registros.some(r=>r.id===p.new.id)) C.registros.unshift(p.new);
+      updateStats();
+      if(curSec==='log') renderLog();
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'asistentes'}, p=>{
+      if(!C.asistentes.some(a=>a.id===p.new.id)) C.asistentes.push(p.new);
+      updateStats();
+      if(curSec==='asistentes') renderAsistentes();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'asistentes'}, p=>{
+      const i=C.asistentes.findIndex(a=>a.id===p.new.id);
+      if(i>=0) C.asistentes[i]=p.new; else C.asistentes.push(p.new);
+      if(curSec==='asistentes') renderAsistentes();
+    })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'asistentes'}, p=>{
+      C.asistentes=C.asistentes.filter(a=>a.id!==p.old.id);
+      updateStats(); if(curSec==='asistentes') renderAsistentes();
+    })
+    .subscribe(status=>{
+      setConnected(status==='SUBSCRIBED');
+    });
 }
 
-// ══════════════════════════════════════════
-//  NAVIGATION
-// ══════════════════════════════════════════
-const SEC_TITLES={dashboard:'Registro Rápido',asistentes:'Gestión de Asistentes',jornadas:'Jornadas del Evento',log:'Registro de Asistencias',reportes:'Reportes y Estadísticas',codigos:'Códigos de Asistentes',config:'Configuración'};
-
-document.getElementById('nav-menu').addEventListener('click',e=>{
-  const link=e.target.closest('.nav-link');
-  if(!link) return;
-  const sec=link.dataset.sec;
-  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  link.classList.add('active');
-  document.getElementById('sec-'+sec).classList.add('active');
-  document.getElementById('page-title').textContent=SEC_TITLES[sec];
-  // Section-specific renders
-  if(sec==='log') renderLog();
-  if(sec==='reportes') renderReportes();
-  if(sec==='asistentes'){ updateCapDatalist(); renderAsistentes(); }
-  if(sec==='jornadas') renderJornadas();
-  if(sec==='codigos') renderCodigos();
-  if(sec==='config'){ document.getElementById('cfg-min').value=DB.config.multaMin; document.getElementById('cfg-kit').value=DB.config.multaKit; }
-});
+function setConnected(ok){
+  const dot=document.getElementById('rt-dot');
+  const lbl=document.getElementById('rt-label');
+  dot.className='rt-dot '+(ok?'ok':'err');
+  lbl.textContent=ok?'En línea':'Sin conexión';
+}
 
 // ══════════════════════════════════════════
 //  CLOCK
@@ -579,237 +637,355 @@ document.getElementById('nav-menu').addEventListener('click',e=>{
 function tick(){
   const n=new Date();
   document.getElementById('clock').textContent=n.toLocaleTimeString('es-CO',{hour12:false});
-  document.getElementById('clock-date').textContent=n.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('clock-date').textContent=n.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
 }
 setInterval(tick,1000); tick();
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return (n||0).toLocaleString('es-CO'); }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ══════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════
+const SEC_TITLES={dashboard:'Registro Rápido',scanner:'Escáner QR',asistentes:'Gestión de Asistentes',jornadas:'Jornadas del Evento',log:'Registro de Asistencias',reportes:'Reportes y Estadísticas',codigos:'Credenciales QR',config:'Configuración'};
+let curSec='dashboard';
+
+document.getElementById('nav-menu').addEventListener('click',e=>{
+  const link=e.target.closest('.nav-link'); if(!link) return;
+  const sec=link.dataset.sec;
+  if(sec===curSec) return;
+  // Stop scanner if leaving scanner section
+  if(curSec==='scanner') stopQRScanner();
+  curSec=sec;
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  link.classList.add('active');
+  document.getElementById('sec-'+sec).classList.add('active');
+  document.getElementById('page-title').textContent=SEC_TITLES[sec];
+  if(sec==='log'){ loadRegistrosIfNeeded().then(renderLog); }
+  if(sec==='reportes'){ loadRegistrosIfNeeded().then(renderReportes); }
+  if(sec==='asistentes'){ updateCapDatalist(); renderAsistentes(); }
+  if(sec==='jornadas') renderJornadas();
+  if(sec==='codigos') renderCodigos();
+  if(sec==='scanner'){ syncJornadaToScanner(); }
+  if(sec==='config'){ document.getElementById('cfg-min').value=C.config.multa_min; document.getElementById('cfg-kit').value=C.config.multa_kit; document.getElementById('j-multa-display').textContent=fmt(C.config.multa_min); }
+});
+
+async function loadRegistrosIfNeeded(){
+  if(registrosLoaded) return;
+  showLoader('Cargando registros…');
+  const {data,error}=await db.from('registros').select('*').order('ts',{ascending:false});
+  if(!error && data){ C.registros=data; registrosLoaded=true; }
+  hideLoader();
+}
 
 // ══════════════════════════════════════════
 //  STATS
 // ══════════════════════════════════════════
 function updateStats(){
   const today=todayStr();
-  const regHoy=new Set(DB.registros.filter(r=>r.ts.startsWith(today)).map(r=>r.cedula));
-  const totalMultas=DB.registros.reduce((s,r)=>s+(r.multaTotal||0),0)
-                   +DB.multas_extra.reduce((s,m)=>s+(m.monto||0),0);
-  document.getElementById('st-total').textContent=DB.asistentes.length;
-  document.getElementById('st-hoy').textContent=regHoy.size;
-  document.getElementById('st-pend').textContent=Math.max(0,DB.asistentes.length-regHoy.size);
+  const regsHoy=C.registros.filter(r=>r.ts.startsWith(today));
+  const cedulasHoy=new Set(regsHoy.map(r=>r.cedula));
+  const totalMultas=C.registros.reduce((s,r)=>s+(r.multa_total||0),0);
+  document.getElementById('st-total').textContent=C.asistentes.length;
+  document.getElementById('st-hoy').textContent=cedulasHoy.size;
+  document.getElementById('st-pend').textContent=Math.max(0,C.asistentes.length-cedulasHoy.size);
   document.getElementById('st-multas').textContent='$'+fmt(totalMultas);
 }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
-function fmt(n){ return (n||0).toLocaleString('es-CO'); }
 
 // ══════════════════════════════════════════
-//  QUICK SEARCH + REGISTER
+//  JORNADA SELECTS
 // ══════════════════════════════════════════
-function buildJornadaSelect(){
-  const sel=document.getElementById('qs-jornada');
-  const today=todayStr();
-  const sorted=[...DB.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora));
-  sel.innerHTML='<option value="">— Sin jornada (solo marcar hora) —</option>'
-    +sorted.map(j=>`<option value="${j.id}" ${j.fecha===today?'':''}>${j.fecha} ${j.hora} · ${j.nombre}</option>`).join('');
-
-  // Auto-select current session
-  const now=new Date();
-  const hhmm=now.toTimeString().slice(0,5);
-  const jornadasHoy=sorted.filter(j=>j.fecha===today);
-  const active=jornadasHoy.filter(j=>j.hora<=hhmm).pop();
-  if(active){ sel.value=active.id; updateJornadaInfo(active); }
-  sel.addEventListener('change',()=>{
-    const j=DB.jornadas.find(x=>x.id===sel.value);
-    updateJornadaInfo(j);
-  });
+function buildJornadaSelects(){
+  const sorted=[...C.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora));
+  const opts='<option value="">— Sin jornada (solo marcar hora) —</option>'+sorted.map(j=>`<option value="${j.id}">${j.fecha} ${j.hora} · ${esc(j.nombre)}</option>`).join('');
+  document.getElementById('qs-jornada').innerHTML=opts;
+  document.getElementById('scan-jornada').innerHTML=opts;
+  autoSelectJornada('qs-jornada');
+  autoSelectJornada('scan-jornada');
+  updateJornadaInfo();
 }
 
-function updateJornadaInfo(j){
-  const el=document.getElementById('qs-jornada-info');
-  if(!j){ el.textContent=''; return; }
-  const ini=new Date(j.fecha+'T'+j.hora);
+function autoSelectJornada(selId){
   const now=new Date();
-  const diff=Math.floor((now-ini)/60000);
+  const hhmm=now.toTimeString().slice(0,5);
+  const today=todayStr();
+  const sorted=[...C.jornadas].filter(j=>j.fecha===today).sort((a,b)=>a.hora.localeCompare(b.hora));
+  const active=sorted.filter(j=>j.hora<=hhmm).pop();
+  if(active) document.getElementById(selId).value=active.id;
+}
+
+function syncJornadaToScanner(){
+  document.getElementById('scan-jornada').value=document.getElementById('qs-jornada').value;
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('qs-jornada').addEventListener('change',updateJornadaInfo);
+});
+
+function updateJornadaInfo(){
+  const sel=document.getElementById('qs-jornada');
+  const el=document.getElementById('qs-jornada-info');
+  const j=C.jornadas.find(x=>x.id===sel.value);
+  if(!j){el.textContent='';return;}
+  const ini=new Date(j.fecha+'T'+j.hora);
+  const diff=Math.floor((new Date()-ini)/60000);
   if(diff>0) el.innerHTML=`<span class="badge b-danger">+${diff} min de retraso</span>`;
   else if(diff<0) el.innerHTML=`<span class="badge b-ok">Inicia en ${-diff} min</span>`;
   else el.innerHTML=`<span class="badge b-ok">¡Justo a tiempo!</span>`;
 }
 
-// Debounced search
+// ══════════════════════════════════════════
+//  QUICK SEARCH + REGISTER
+// ══════════════════════════════════════════
 let qsTimer;
 document.getElementById('qs-input').addEventListener('input',e=>{
   clearTimeout(qsTimer);
-  qsTimer=setTimeout(()=>doSearch(e.target.value.trim()),120);
+  qsTimer=setTimeout(()=>doSearch(e.target.value.trim()),110);
 });
 document.getElementById('qs-input').addEventListener('keydown',e=>{
   if(e.key==='Enter'){
-    const first=document.querySelector('#qs-results .res-item');
-    if(first){ const btn=first.querySelector('.btn-success,.btn-accent'); if(btn) btn.click(); }
+    const btn=document.querySelector('#qs-results .btn-success,.btn-accent');
+    if(btn) btn.click();
   }
   if(e.key==='Escape') clearSearch();
 });
 document.getElementById('qs-clear').addEventListener('click',clearSearch);
 
-function clearSearch(){ document.getElementById('qs-input').value=''; document.getElementById('qs-results').innerHTML=''; document.getElementById('qs-input').focus(); }
+function clearSearch(){
+  document.getElementById('qs-input').value='';
+  document.getElementById('qs-results').innerHTML='';
+  document.getElementById('qs-input').focus();
+}
 
 function doSearch(q){
   const res=document.getElementById('qs-results');
-  if(!q||q.length<2){ res.innerHTML=''; return; }
+  if(!q||q.length<2){res.innerHTML='';return;}
   const ql=q.toLowerCase();
-  const hits=DB.asistentes.filter(a=>
-    a.cedula.includes(q)||a.codigo===q||
-    (a.nombre+' '+a.apellidos).toLowerCase().includes(ql)
-  ).slice(0,6);
-  if(!hits.length){ res.innerHTML='<div class="res-item">No se encontró ningún asistente con ese criterio.</div>'; return; }
-
+  const hits=C.asistentes.filter(a=>
+    a.cedula.includes(q)||a.codigo===q||(a.nombre+' '+a.apellidos).toLowerCase().includes(ql)
+  ).slice(0,5);
+  if(!hits.length){res.innerHTML='<div class="res-item">No se encontró ningún asistente.</div>';return;}
   const jornadaId=document.getElementById('qs-jornada').value;
+  const today=todayStr();
   res.innerHTML=hits.map(a=>{
     const yaReg=jornadaId
-      ? DB.registros.some(r=>r.cedula===a.cedula&&r.jornadaId===jornadaId)
-      : registradoHoy(a.cedula);
+      ?C.registros.some(r=>r.cedula===a.cedula&&r.jornada_id===jornadaId)
+      :C.registros.some(r=>r.cedula===a.cedula&&r.ts.startsWith(today));
     return `<div class="res-item">
       <div class="res-main">
-        <h3>${esc(a.nombre+' '+a.apellidos)} <span class="chip chip-code">${a.codigo}</span>${yaReg?'<span class="chip chip-warn" style="margin-left:4px">✓ YA REGISTRADO</span>':''}</h3>
-        <p>CC ${a.cedula}${a.capitulo?' · '+esc(a.capitulo):''}</p>
+        <h3>${esc(a.nombre+' '+a.apellidos)}<span class="chip chip-code">${a.codigo}</span>${yaReg?'<span class="chip chip-warn">✓ Ya registrado</span>':''}</h3>
+        <p>CC ${esc(a.cedula)}${a.capitulo?' · '+esc(a.capitulo):''}</p>
       </div>
-      <button class="btn ${yaReg?'btn-ghost':'btn-success'}" onclick="registrar('${a.cedula}','qs')">
-        ${yaReg?'<i class="fas fa-redo"></i> Re-registrar':'<i class="fas fa-check"></i> Registrar'}
+      <button class="btn ${yaReg?'btn-ghost':'btn-success'}" onclick="registrar('${a.cedula}','dash')">
+        ${yaReg?'<i class="fas fa-redo"></i> Re-reg':'<i class="fas fa-check"></i> Registrar'}
       </button>
     </div>`;
   }).join('');
 }
 
-function registradoHoy(cedula){
-  const t=todayStr();
-  return DB.registros.some(r=>r.cedula===cedula&&r.ts.startsWith(t));
-}
+// ══════════════════════════════════════════
+//  REGISTER ATTENDANCE (shared by dash + scanner)
+// ══════════════════════════════════════════
+async function registrar(cedula, source){
+  const a=C.asistentes.find(x=>x.cedula===cedula);
+  if(!a){showBanner('notfound',source,{nombre:'Cédula '+cedula+' no encontrada'});return;}
 
-function registrar(cedula, source){
-  const a=DB.asistentes.find(x=>x.cedula===cedula);
-  if(!a){ alert('Asistente no encontrado'); return; }
+  const jornadaSelId=source==='scanner'
+    ?document.getElementById('scan-jornada').value
+    :document.getElementById('qs-jornada').value;
+  const j=jornadaSelId?C.jornadas.find(x=>x.id===jornadaSelId):null;
 
   const now=new Date();
-  const ts=now.toISOString();
-  const jornadaId=document.getElementById('qs-jornada').value;
-  const j=jornadaId?DB.jornadas.find(x=>x.id===jornadaId):null;
-
-  let minutosRetraso=0, multaBase=0, multaExtra=0;
-
+  let minutos_retraso=0,multa_base=0,multa_extra=0;
   if(j){
     const ini=new Date(j.fecha+'T'+j.hora);
-    minutosRetraso=Math.max(0,Math.floor((now-ini)/60000));
-    multaBase=minutosRetraso*DB.config.multaMin;
-
-    // Extra kit charge on FIRST check-in of the day if late
+    minutos_retraso=Math.max(0,Math.floor((now-ini)/60000));
+    multa_base=minutos_retraso*C.config.multa_min;
     const hoy=todayStr();
-    const esPrimera=!DB.registros.some(r=>r.cedula===cedula&&r.ts.startsWith(hoy));
-    if(esPrimera&&minutosRetraso>0) multaExtra=DB.config.multaKit;
+    const esPrimera=!C.registros.some(r=>r.cedula===cedula&&r.ts.startsWith(hoy));
+    if(esPrimera&&minutos_retraso>0) multa_extra=C.config.multa_kit;
   }
-  const multaTotal=multaBase+multaExtra;
+  const multa_total=multa_base+multa_extra;
+  const ts=now.toISOString();
+  const reg={cedula,jornada_id:jornadaSelId||null,ts,minutos_retraso,multa_base,multa_extra,multa_total};
 
-  DB.registros.push({id:uid(),cedula,jornadaId:jornadaId||'',ts,minutosRetraso,multaBase,multaExtra,multaTotal});
-  saveDB();
+  const {data,error}=await db.from('registros').insert(reg).select().single();
+  if(error){alert('Error al registrar: '+error.message);return;}
 
-  const hora=now.toLocaleTimeString('es-CO',{hour12:false});
-  const nombre=a.nombre+' '+a.apellidos;
-
-  // Show success banner
-  const isLate=multaTotal>0;
-  const banner=document.getElementById('sb1');
-  banner.className='success-banner show '+(isLate?'late':'ok');
-  let detalle='';
-  if(multaTotal>0){
-    detalle=`${minutosRetraso} min × $${fmt(DB.config.multaMin)} = $${fmt(multaBase)}`;
-    if(multaExtra>0) detalle+=` + $${fmt(multaExtra)} (kit)`;
-  } else { detalle='Llegó a tiempo ✓'; }
-
-  banner.innerHTML=`
-    <div class="sb-icon">${isLate?'⚠️':'✅'}</div>
-    <div class="sb-name">${esc(nombre)}</div>
-    <div class="sb-time">Registrado: ${hora}</div>
-    <div class="sb-fine">${multaTotal>0?'$'+fmt(multaTotal):'Sin multa'}</div>
-    <div class="sb-detail">${detalle}</div>
-  `;
-
-  clearSearch();
+  if(!C.registros.some(r=>r.id===data.id)) C.registros.unshift(data);
   updateStats();
-  // Scroll to banner and auto-hide after 5s
-  banner.scrollIntoView({behavior:'smooth',block:'nearest'});
-  clearTimeout(banner._timer);
-  banner._timer=setTimeout(()=>{
+
+  if(source==='dash'){
+    clearSearch();
+    showBanner('ok','dash',{a,data});
+  } else {
+    showBanner(multa_total>0?'late':'ok','scanner',{a,data});
+  }
+}
+
+function showBanner(type, source, ctx){
+  const bannerId = source==='scanner'?'sb-scanner':'sb-dash';
+  const banner=document.getElementById(bannerId);
+  let html='';
+  if(type==='notfound'){
+    html=`<div class="sb-icon">❌</div><div class="sb-name">${esc(ctx.nombre||'No encontrado')}</div>`;
+    banner.className='suc-banner show notfound';
+  } else {
+    const {a,data}=ctx;
+    const hora=new Date(data.ts).toLocaleTimeString('es-CO',{hour12:false});
+    const isLate=data.multa_total>0;
+    let detalle='Llegó a tiempo ✓';
+    if(data.multa_total>0){
+      detalle=`${data.minutos_retraso} min × $${fmt(C.config.multa_min)} = $${fmt(data.multa_base)}`;
+      if(data.multa_extra>0) detalle+=` + $${fmt(data.multa_extra)} (kit)`;
+    }
+    html=`<div class="sb-icon">${isLate?'⚠️':'✅'}</div>
+      <div class="sb-name">${esc(a.nombre+' '+a.apellidos)}</div>
+      <div class="sb-time">${hora}</div>
+      <div class="sb-fine">${data.multa_total>0?'$'+fmt(data.multa_total):'Sin multa'}</div>
+      <div class="sb-detail">${detalle}</div>`;
+    banner.className='suc-banner show '+(isLate?'late':'ok');
+  }
+  banner.innerHTML=html;
+  clearTimeout(banner._t);
+  banner._t=setTimeout(()=>{
     banner.classList.remove('show');
-    document.getElementById('qs-input').focus();
-  },5000);
+    if(source==='dash') document.getElementById('qs-input').focus();
+    else if(source==='scanner') resumeQR();
+  },type==='notfound'?2000:4000);
+}
+
+// ══════════════════════════════════════════
+//  QR SCANNER
+// ══════════════════════════════════════════
+const qrCanvas=document.createElement('canvas');
+const qrCtx=qrCanvas.getContext('2d',{willReadFrequently:true});
+let qrActive=false, qrStream=null, qrPaused=false;
+let lastQRData='', lastQRTime=0;
+
+async function toggleScanner(){
+  const btn=document.getElementById('btn-scan-toggle');
+  if(qrActive||qrStream){
+    stopQRScanner();
+    btn.innerHTML='<i class="fas fa-camera"></i> Activar cámara';
+  } else {
+    btn.innerHTML='<i class="fas fa-stop"></i> Detener cámara';
+    await startQRScanner();
+  }
+}
+
+async function startQRScanner(){
+  const video=document.getElementById('qr-video');
+  const msg=document.getElementById('qr-status-msg');
+  msg.textContent='Solicitando acceso a la cámara…';
+  try{
+    qrStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
+    video.srcObject=qrStream;
+    await video.play();
+    qrActive=true; qrPaused=false;
+    msg.textContent='📷 Apunta al QR de la credencial';
+    requestAnimationFrame(qrTick);
+  }catch(e){
+    const msg2=e.name==='NotAllowedError'?'Permiso de cámara denegado. Habilítalo en ajustes del navegador.':'Error al acceder a la cámara: '+e.message;
+    document.getElementById('qr-status-msg').textContent='⚠️ '+msg2;
+    document.getElementById('btn-scan-toggle').innerHTML='<i class="fas fa-camera"></i> Activar cámara';
+  }
+}
+
+function stopQRScanner(){
+  qrActive=false; qrPaused=false;
+  if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null;}
+  const video=document.getElementById('qr-video');
+  if(video) video.srcObject=null;
+  document.getElementById('qr-status-msg').textContent='Cámara detenida.';
+}
+
+function resumeQR(){
+  qrPaused=false;
+  if(qrActive) requestAnimationFrame(qrTick);
+}
+
+function qrTick(){
+  if(!qrActive||qrPaused) return;
+  const video=document.getElementById('qr-video');
+  if(!video||video.readyState<2){requestAnimationFrame(qrTick);return;}
+  qrCanvas.width=video.videoWidth;
+  qrCanvas.height=video.videoHeight;
+  qrCtx.drawImage(video,0,0);
+  const img=qrCtx.getImageData(0,0,qrCanvas.width,qrCanvas.height);
+  const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+  if(code&&code.data.trim()){
+    processQRScan(code.data.trim());
+  } else {
+    requestAnimationFrame(qrTick);
+  }
+}
+
+async function processQRScan(data){
+  const now=Date.now();
+  if(data===lastQRData&&now-lastQRTime<3500){requestAnimationFrame(qrTick);return;}
+  lastQRData=data; lastQRTime=now;
+  qrPaused=true; // pause while processing
+  document.getElementById('qr-status-msg').textContent='✅ QR detectado: '+data;
+  if(navigator.vibrate) navigator.vibrate(80);
+  await registrar(data,'scanner');
+  // resumeQR() is called from showBanner timeout
 }
 
 // ══════════════════════════════════════════
 //  ASISTENTES CRUD
 // ══════════════════════════════════════════
 let editAsistenteId=null, asPage=0;
-const AS_PER_PAGE=25;
+const AS_PER=25;
 
 function renderAsistentes(){
-  // Update cap filter
-  const caps=[...new Set(DB.asistentes.map(a=>a.capitulo).filter(Boolean))].sort();
+  const caps=[...new Set(C.asistentes.map(a=>a.capitulo).filter(Boolean))].sort();
   const capSel=document.getElementById('fa-cap');
   const capVal=capSel.value;
-  capSel.innerHTML='<option value="">Todos los capítulos</option>'+caps.map(c=>`<option value="${c}" ${c===capVal?'selected':''}>${esc(c)}</option>`).join('');
-
+  capSel.innerHTML='<option value="">Todos los capítulos</option>'+caps.map(c=>`<option value="${esc(c)}" ${c===capVal?'selected':''}>${esc(c)}</option>`).join('');
   const q=(document.getElementById('fa-search').value||'').toLowerCase();
   const cap=capSel.value;
-  const filtered=DB.asistentes.filter(a=>{
-    const txt=q?( a.cedula.includes(q)||(a.nombre+' '+a.apellidos).toLowerCase().includes(q)||a.codigo.includes(q) ):true;
-    const capOk=cap?a.capitulo===cap:true;
-    return txt&&capOk;
+  const filtered=C.asistentes.filter(a=>{
+    const tm=!q||(a.cedula.includes(q)||(a.nombre+' '+a.apellidos).toLowerCase().includes(q)||a.codigo.includes(q));
+    return tm&&(!cap||a.capitulo===cap);
   });
-  const total=filtered.length;
-  const pages=Math.max(1,Math.ceil(total/AS_PER_PAGE));
+  const pages=Math.max(1,Math.ceil(filtered.length/AS_PER));
   asPage=Math.min(asPage,pages-1);
-  const slice=filtered.slice(asPage*AS_PER_PAGE,(asPage+1)*AS_PER_PAGE);
-
+  const slice=filtered.slice(asPage*AS_PER,(asPage+1)*AS_PER);
   const tbody=document.getElementById('tb-asistentes');
-  if(!slice.length){ tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No hay asistentes. Importa un archivo o agrega manualmente.</td></tr>'; }
-  else{
-    tbody.innerHTML=slice.map(a=>{
-      const regs=DB.registros.filter(r=>r.cedula===a.cedula);
-      const multa=regs.reduce((s,r)=>s+(r.multaTotal||0),0)+DB.multas_extra.filter(m=>m.cedula===a.cedula).reduce((s,m)=>s+(m.monto||0),0);
-      return `<tr>
-        <td><span class="code-tag">${a.codigo}</span></td>
-        <td>${esc(a.cedula)}</td>
-        <td>${esc(a.nombre+' '+a.apellidos)}</td>
-        <td>${esc(a.capitulo||'—')}</td>
-        <td>${regs.length>0?`<span class="badge b-ok">${regs.length}</span>`:'<span class="badge b-gray">0</span>'}</td>
-        <td>${multa>0?`<span class="badge b-danger">$${fmt(multa)}</span>`:'—'}</td>
-        <td><div style="display:flex;gap:5px">
-          <button class="btn btn-ghost btn-sm" onclick="openModalAsistente('${a.id}')"><i class="fas fa-edit"></i></button>
-          <button class="btn btn-danger btn-sm" onclick="deleteAsistente('${a.id}')"><i class="fas fa-trash"></i></button>
-          <button class="btn btn-ghost btn-sm" title="Multa manual" onclick="openMultaManual('${a.cedula}','${esc(a.nombre+' '+a.apellidos)}')"><i class="fas fa-gavel"></i></button>
-        </div></td>
-      </tr>`;
-    }).join('');
-  }
-
-  // Pagination
-  const pag=document.getElementById('pag-asistentes');
-  pag.innerHTML='';
-  if(pages>1){
-    for(let i=0;i<pages;i++){
-      const b=document.createElement('button');
-      b.className='pag-btn'+(i===asPage?' active':'');
-      b.textContent=i+1;
-      b.onclick=(()=>{const p=i;return()=>{asPage=p;renderAsistentes();};})();
-      pag.appendChild(b);
-    }
-  }
+  if(!slice.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:22px">Sin asistentes registrados.</td></tr>';return;}
+  tbody.innerHTML=slice.map(a=>{
+    const regs=C.registros.filter(r=>r.cedula===a.cedula);
+    const multa=regs.reduce((s,r)=>s+(r.multa_total||0),0);
+    return `<tr>
+      <td><span class="code-tag">${a.codigo}</span></td>
+      <td>${esc(a.cedula)}</td>
+      <td>${esc(a.nombre+' '+a.apellidos)}</td>
+      <td>${esc(a.capitulo||'—')}</td>
+      <td>${regs.length?`<span class="badge b-ok">${regs.length}</span>`:'<span class="badge b-gray">0</span>'}</td>
+      <td>${multa?`<span class="badge b-danger">$${fmt(multa)}</span>`:'—'}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm" onclick="openModalAsistente('${a.id}')"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAsistente('${a.id}')"><i class="fas fa-trash"></i></button>
+        <button class="btn btn-ghost btn-sm" title="Multa manual" onclick="openMultaManual('${esc(a.cedula)}','${esc(a.nombre+' '+a.apellidos)}')"><i class="fas fa-gavel"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  const pag=document.getElementById('pag-asistentes'); pag.innerHTML='';
+  if(pages>1) for(let i=0;i<pages;i++){const b=document.createElement('button');b.className='pag-btn'+(i===asPage?' active':'');b.textContent=i+1;b.onclick=(p=>()=>{asPage=p;renderAsistentes();})(i);pag.appendChild(b);}
 }
 
 function updateCapDatalist(){
-  const caps=[...new Set(DB.asistentes.map(a=>a.capitulo).filter(Boolean))].sort();
+  const caps=[...new Set(C.asistentes.map(a=>a.capitulo).filter(Boolean))].sort();
   document.getElementById('cap-datalist').innerHTML=caps.map(c=>`<option value="${esc(c)}">`).join('');
 }
 
 function openModalAsistente(id){
   editAsistenteId=id||null;
-  const m=document.getElementById('modal-asistente');
   if(id){
-    const a=DB.asistentes.find(x=>x.id===id);
+    const a=C.asistentes.find(x=>x.id===id);
     document.getElementById('ma-title').textContent='Editar Asistente';
     document.getElementById('ma-cedula').value=a.cedula;
     document.getElementById('ma-nombre').value=a.nombre;
@@ -819,39 +995,61 @@ function openModalAsistente(id){
     document.getElementById('ma-codigo-row').style.display='block';
   } else {
     document.getElementById('ma-title').textContent='Nuevo Asistente';
-    ['ma-cedula','ma-nombre','ma-apellidos','ma-capitulo'].forEach(id=>document.getElementById(id).value='');
+    ['ma-cedula','ma-nombre','ma-apellidos','ma-capitulo'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('ma-codigo-row').style.display='none';
   }
-  m.classList.add('show');
+  document.getElementById('modal-asistente').classList.add('show');
   setTimeout(()=>document.getElementById('ma-cedula').focus(),80);
 }
 
-function saveAsistente(){
+async function saveAsistente(){
   const cedula=document.getElementById('ma-cedula').value.trim();
   const nombre=document.getElementById('ma-nombre').value.trim();
   const apellidos=document.getElementById('ma-apellidos').value.trim();
   const capitulo=document.getElementById('ma-capitulo').value.trim();
-  if(!cedula||!nombre||!apellidos){ alert('Cédula, nombre y apellidos son obligatorios.'); return; }
-  const dup=DB.asistentes.find(a=>a.cedula===cedula&&a.id!==editAsistenteId);
-  if(dup){ alert(`La cédula ${cedula} ya está registrada para "${dup.nombre} ${dup.apellidos}".`); return; }
-
-  if(editAsistenteId){
-    const i=DB.asistentes.findIndex(a=>a.id===editAsistenteId);
-    DB.asistentes[i]={...DB.asistentes[i],cedula,nombre,apellidos,capitulo};
-  } else {
-    DB.asistentes.push({id:uid(),cedula,nombre,apellidos,capitulo,codigo:genCodigo()});
-  }
-  saveDB(); closeModal('modal-asistente'); renderAsistentes(); updateStats(); updateCapDatalist();
+  if(!cedula||!nombre||!apellidos){alert('Cédula, nombre y apellidos son obligatorios.');return;}
+  const dup=C.asistentes.find(a=>a.cedula===cedula&&a.id!==editAsistenteId);
+  if(dup){alert(`Cédula ${cedula} ya registrada: "${dup.nombre} ${dup.apellidos}".`);return;}
+  const btn=document.getElementById('ma-save-btn');
+  btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    if(editAsistenteId){
+      const {data,error}=await db.from('asistentes').update({cedula,nombre,apellidos,capitulo}).eq('id',editAsistenteId).select().single();
+      if(error) throw error;
+      const i=C.asistentes.findIndex(a=>a.id===editAsistenteId);
+      if(i>=0) C.asistentes[i]=data;
+    } else {
+      const codigo=genCodigo();
+      const {data,error}=await db.from('asistentes').insert({cedula,nombre,apellidos,capitulo,codigo}).select().single();
+      if(error) throw error;
+      if(!C.asistentes.some(a=>a.id===data.id)) C.asistentes.push(data);
+    }
+    saveDB_noop();
+    closeModal('modal-asistente');
+    renderAsistentes(); updateStats(); updateCapDatalist();
+  }catch(e){alert('Error: '+e.message);}
+  finally{btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Guardar';}
 }
 
-function deleteAsistente(id){
-  const a=DB.asistentes.find(x=>x.id===id);
-  if(!confirm(`¿Eliminar a "${a.nombre} ${a.apellidos}"?\nTambién se eliminarán sus ${DB.registros.filter(r=>r.cedula===a.cedula).length} registro(s) de asistencia.`)) return;
-  DB.asistentes=DB.asistentes.filter(x=>x.id!==id);
-  DB.registros=DB.registros.filter(r=>r.cedula!==a.cedula);
-  DB.multas_extra=DB.multas_extra.filter(m=>m.cedula!==a.cedula);
-  saveDB(); renderAsistentes(); updateStats();
+async function deleteAsistente(id){
+  const a=C.asistentes.find(x=>x.id===id);
+  const nr=C.registros.filter(r=>r.cedula===a.cedula).length;
+  if(!confirm(`¿Eliminar a "${a.nombre} ${a.apellidos}"?${nr?' También sus '+nr+' registro(s) de asistencia.':''}`)) return;
+  const {error}=await db.from('asistentes').delete().eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  C.asistentes=C.asistentes.filter(x=>x.id!==id);
+  C.registros=C.registros.filter(r=>r.cedula!==a.cedula);
+  await db.from('registros').delete().eq('cedula',a.cedula);
+  renderAsistentes(); updateStats();
 }
+
+function genCodigo(){
+  let c,t=0;
+  do{c=(1000+Math.floor(Math.random()*9000)).toString();t++;}
+  while(C.asistentes.some(a=>a.codigo===c)&&t<5000);
+  return c;
+}
+function saveDB_noop(){} // no-op, data lives in Supabase
 
 // ══════════════════════════════════════════
 //  IMPORT
@@ -860,42 +1058,44 @@ function importarAsistentes(input){
   const file=input.files[0]; if(!file) return;
   const isCsv=file.name.toLowerCase().endsWith('.csv');
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try{
       let rows=[];
       if(isCsv){
-        const text=e.target.result;
-        const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+        const lines=e.target.result.replace(/\r/g,'').split('\n').filter(l=>l.trim());
         const sep=lines[0].includes(';')?';':',';
         const hdr=lines[0].split(sep).map(h=>h.replace(/"/g,'').trim().toLowerCase());
-        rows=lines.slice(1).map(l=>{
-          const vals=l.split(sep).map(v=>v.replace(/"/g,'').trim());
-          const o={}; hdr.forEach((h,i)=>o[h]=vals[i]||''); return o;
-        });
+        rows=lines.slice(1).map(l=>{const v=l.split(sep).map(x=>x.replace(/"/g,'').trim());const o={};hdr.forEach((h,i)=>o[h]=v[i]||'');return o;});
       } else {
         const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
         const ws=wb.Sheets[wb.SheetNames[0]];
-        rows=XLSX.utils.sheet_to_json(ws,{defval:''}).map(r=>{
-          const o={}; Object.keys(r).forEach(k=>o[k.toLowerCase().trim()]=String(r[k]).trim()); return o;
-        });
+        rows=XLSX.utils.sheet_to_json(ws,{defval:''}).map(r=>{const o={};Object.keys(r).forEach(k=>o[k.toLowerCase().trim()]=String(r[k]).trim());return o;});
       }
-      let added=0,skipped=0,errs=[];
+      let toInsert=[], skipped=0, errs=[];
       rows.forEach((row,i)=>{
         const cedula=String(row.cedula||row['cédula']||'').trim();
         const nombre=String(row.nombre||'').trim();
         const apellidos=String(row.apellidos||'').trim();
         const capitulo=String(row.capitulo||row['capítulo']||'').trim();
-        if(!cedula){ errs.push(`Fila ${i+2}: sin cédula`); return; }
-        if(!nombre){ errs.push(`Fila ${i+2}: sin nombre`); return; }
-        if(DB.asistentes.some(a=>a.cedula===cedula)){ skipped++; return; }
-        DB.asistentes.push({id:uid(),cedula,nombre,apellidos,capitulo,codigo:genCodigo()});
-        added++;
+        if(!cedula){errs.push(`Fila ${i+2}: sin cédula`);return;}
+        if(!nombre){errs.push(`Fila ${i+2}: sin nombre`);return;}
+        if(C.asistentes.some(a=>a.cedula===cedula)){skipped++;return;}
+        toInsert.push({cedula,nombre,apellidos,capitulo,codigo:genCodigo()});
       });
-      saveDB(); renderAsistentes(); updateStats(); updateCapDatalist(); buildJornadaSelect();
-      let msg=`Importación completada:\n✅ ${added} agregados\n⏭ ${skipped} omitidos (cédula duplicada)`;
+      if(!toInsert.length){alert(`Nada que importar.\n${skipped} duplicados, ${errs.length} errores.`);input.value='';return;}
+      showLoader(`Importando ${toInsert.length} asistentes…`);
+      // Insert in chunks of 100
+      for(let i=0;i<toInsert.length;i+=100){
+        const chunk=toInsert.slice(i,i+100);
+        const {data,error}=await db.from('asistentes').insert(chunk).select();
+        if(error) throw error;
+        data.forEach(d=>{if(!C.asistentes.some(a=>a.id===d.id)) C.asistentes.push(d);});
+      }
+      hideLoader(); renderAsistentes(); updateStats(); buildJornadaSelects();
+      let msg=`✅ ${toInsert.length} importados\n⏭ ${skipped} duplicados`;
       if(errs.length) msg+=`\n⚠️ ${errs.length} errores:\n`+errs.slice(0,5).join('\n');
       alert(msg);
-    } catch(err){ alert('Error al importar: '+err.message); }
+    }catch(err){hideLoader();alert('Error al importar: '+err.message);}
     input.value='';
   };
   isCsv?reader.readAsText(file,'UTF-8'):reader.readAsArrayBuffer(file);
@@ -903,12 +1103,7 @@ function importarAsistentes(input){
 
 function descargarPlantilla(){
   const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet([
-    ['cedula','nombre','apellidos','capitulo'],
-    ['12345678','Juan','Pérez García','Barranquilla'],
-    ['87654321','María','López Rodríguez','Bogotá D.C.'],
-    ['55566677','Carlos','Martínez Silva','Medellín'],
-  ]);
+  const ws=XLSX.utils.aoa_to_sheet([['cedula','nombre','apellidos','capitulo'],['12345678','Juan','Pérez García','Barranquilla'],['87654321','María','López Rodríguez','Bogotá D.C.']]);
   ws['!cols']=[{wch:16},{wch:20},{wch:25},{wch:20}];
   XLSX.utils.book_append_sheet(wb,ws,'Asistentes');
   XLSX.writeFile(wb,'plantilla_asistentes_SNC2026.xlsx');
@@ -920,352 +1115,310 @@ function descargarPlantilla(){
 let editJornadaId=null;
 
 function renderJornadas(){
+  document.getElementById('j-multa-display').textContent=fmt(C.config.multa_min);
   const c=document.getElementById('lista-jornadas');
-  document.getElementById('j-multa-display').textContent=fmt(DB.config.multaMin);
-  if(!DB.jornadas.length){
-    c.innerHTML='<div class="card" style="text-align:center;padding:36px;color:var(--muted)"><i class="fas fa-clock" style="font-size:36px;margin-bottom:10px;display:block"></i><p>No hay jornadas. Agrega la primera.</p></div>';
-    return;
-  }
-  const sorted=[...DB.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora));
+  if(!C.jornadas.length){c.innerHTML='<div class="card" style="text-align:center;padding:32px;color:var(--muted)"><i class="fas fa-clock" style="font-size:32px;margin-bottom:8px;display:block"></i><p>No hay jornadas.</p></div>';return;}
+  const sorted=[...C.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora));
   const grouped={};
-  sorted.forEach(j=>{ (grouped[j.fecha]||(grouped[j.fecha]=[])).push(j); });
+  sorted.forEach(j=>{(grouped[j.fecha]||(grouped[j.fecha]=[])).push(j);});
   const TIPOS={jornada:'Jornada',actividad:'Actividad',visita:'Visita industrial',taller:'Taller SENA'};
   c.innerHTML=Object.keys(grouped).sort().map(f=>{
     const dt=new Date(f+'T12:00');
     const label=dt.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    return `<div class="card">
-      <div class="card-title"><i class="fas fa-calendar-day"></i> ${label}</div>
-      ${grouped[f].map(j=>{
-        const nr=DB.registros.filter(r=>r.jornadaId===j.id).length;
-        return `<div class="jcard">
-          <div class="jcard-time">${j.hora}</div>
-          <div class="jcard-info">
-            <h3>${esc(j.nombre)}</h3>
-            <p><span class="badge b-info">${TIPOS[j.tipo]||j.tipo}</span> &nbsp;${nr} registro${nr!==1?'s':''}</p>
-          </div>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" onclick="openModalJornada('${j.id}')"><i class="fas fa-edit"></i></button>
-            <button class="btn btn-danger btn-sm" onclick="deleteJornada('${j.id}')"><i class="fas fa-trash"></i></button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
+    return `<div class="card"><div class="card-title"><i class="fas fa-calendar-day"></i>${label}</div>${grouped[f].map(j=>{
+      const nr=C.registros.filter(r=>r.jornada_id===j.id).length;
+      return `<div class="jcard">
+        <div class="jcard-time">${j.hora}</div>
+        <div class="jcard-info"><h3>${esc(j.nombre)}</h3><p><span class="badge b-info">${TIPOS[j.tipo]||j.tipo}</span>&nbsp;${nr} registro${nr!==1?'s':''}</p></div>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-sm" onclick="openModalJornada('${j.id}')"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="deleteJornada('${j.id}')"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
   }).join('');
-  buildJornadaSelect();
 }
 
 function openModalJornada(id){
   editJornadaId=id||null;
-  if(id){
-    const j=DB.jornadas.find(x=>x.id===id);
-    document.getElementById('mj-title').textContent='Editar Jornada';
-    document.getElementById('mj-nombre').value=j.nombre;
-    document.getElementById('mj-fecha').value=j.fecha;
-    document.getElementById('mj-hora').value=j.hora;
-    document.getElementById('mj-tipo').value=j.tipo;
-  } else {
-    document.getElementById('mj-title').textContent='Nueva Jornada';
-    document.getElementById('mj-nombre').value='';
-    document.getElementById('mj-fecha').value=todayStr();
-    document.getElementById('mj-hora').value='08:00';
-    document.getElementById('mj-tipo').value='jornada';
-  }
+  if(id){const j=C.jornadas.find(x=>x.id===id);document.getElementById('mj-title').textContent='Editar Jornada';document.getElementById('mj-nombre').value=j.nombre;document.getElementById('mj-fecha').value=j.fecha;document.getElementById('mj-hora').value=j.hora;document.getElementById('mj-tipo').value=j.tipo;}
+  else{document.getElementById('mj-title').textContent='Nueva Jornada';document.getElementById('mj-nombre').value='';document.getElementById('mj-fecha').value=todayStr();document.getElementById('mj-hora').value='08:00';document.getElementById('mj-tipo').value='jornada';}
   document.getElementById('modal-jornada').classList.add('show');
   setTimeout(()=>document.getElementById('mj-nombre').focus(),80);
 }
 
-function saveJornada(){
+async function saveJornada(){
   const nombre=document.getElementById('mj-nombre').value.trim();
   const fecha=document.getElementById('mj-fecha').value;
   const hora=document.getElementById('mj-hora').value;
   const tipo=document.getElementById('mj-tipo').value;
-  if(!nombre||!fecha||!hora){ alert('Nombre, fecha y hora son obligatorios.'); return; }
-  if(editJornadaId){
-    const i=DB.jornadas.findIndex(j=>j.id===editJornadaId);
-    DB.jornadas[i]={...DB.jornadas[i],nombre,fecha,hora,tipo};
-  } else {
-    DB.jornadas.push({id:uid(),nombre,fecha,hora,tipo});
-  }
-  saveDB(); closeModal('modal-jornada'); renderJornadas();
+  if(!nombre||!fecha||!hora){alert('Nombre, fecha y hora son obligatorios.');return;}
+  const btn=document.getElementById('mj-save-btn');
+  btn.disabled=true; btn.textContent='Guardando…';
+  try{
+    if(editJornadaId){
+      const {data,error}=await db.from('jornadas').update({nombre,fecha,hora,tipo}).eq('id',editJornadaId).select().single();
+      if(error) throw error;
+      const i=C.jornadas.findIndex(j=>j.id===editJornadaId); if(i>=0) C.jornadas[i]=data;
+    } else {
+      const {data,error}=await db.from('jornadas').insert({nombre,fecha,hora,tipo}).select().single();
+      if(error) throw error;
+      C.jornadas.push(data);
+    }
+    closeModal('modal-jornada'); renderJornadas(); buildJornadaSelects();
+  }catch(e){alert('Error: '+e.message);}
+  finally{btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Guardar';}
 }
 
-function deleteJornada(id){
-  const j=DB.jornadas.find(x=>x.id===id);
-  const nr=DB.registros.filter(r=>r.jornadaId===id).length;
-  if(!confirm(`¿Eliminar jornada "${j.nombre}"?${nr>0?`\n${nr} registros perderán la referencia de jornada.`:''}`)) return;
-  DB.jornadas=DB.jornadas.filter(x=>x.id!==id);
-  saveDB(); renderJornadas();
+async function deleteJornada(id){
+  const j=C.jornadas.find(x=>x.id===id);
+  if(!confirm(`¿Eliminar jornada "${j.nombre}"?`)) return;
+  const {error}=await db.from('jornadas').delete().eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  C.jornadas=C.jornadas.filter(x=>x.id!==id);
+  renderJornadas(); buildJornadaSelects();
 }
 
 // ══════════════════════════════════════════
 //  LOG
 // ══════════════════════════════════════════
-let logPage=0;
-const LOG_PER_PAGE=30;
+let logPage=0; const LOG_PER=30;
 
 function renderLog(){
-  // Update filter selects
   const jSel=document.getElementById('fl-jornada');
   const jVal=jSel.value;
-  jSel.innerHTML='<option value="">Todas las jornadas</option>'+
-    [...DB.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora))
-    .map(j=>`<option value="${j.id}" ${j.id===jVal?'selected':''}>${j.fecha} ${j.hora} · ${esc(j.nombre)}</option>`).join('');
-
+  jSel.innerHTML='<option value="">Todas las jornadas</option>'+[...C.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora)).map(j=>`<option value="${j.id}" ${j.id===jVal?'selected':''}>${j.fecha} ${j.hora} · ${esc(j.nombre)}</option>`).join('');
   const fSel=document.getElementById('fl-fecha');
   const fVal=fSel.value;
-  const fechas=[...new Set(DB.registros.map(r=>r.ts.slice(0,10)))].sort().reverse();
+  const fechas=[...new Set(C.registros.map(r=>r.ts.slice(0,10)))].sort().reverse();
   fSel.innerHTML='<option value="">Todas las fechas</option>'+fechas.map(f=>`<option value="${f}" ${f===fVal?'selected':''}>${f}</option>`).join('');
-
   const q=(document.getElementById('fl-search').value||'').toLowerCase();
+  let regs=[...C.registros].sort((a,b)=>b.ts.localeCompare(a.ts));
   const jf=document.getElementById('fl-jornada').value;
   const ff=document.getElementById('fl-fecha').value;
   const sf=document.getElementById('fl-estado').value;
-
-  let regs=[...DB.registros].sort((a,b)=>b.ts.localeCompare(a.ts));
-  if(jf) regs=regs.filter(r=>r.jornadaId===jf);
+  if(jf) regs=regs.filter(r=>r.jornada_id===jf);
   if(ff) regs=regs.filter(r=>r.ts.startsWith(ff));
-  if(sf==='ok') regs=regs.filter(r=>r.minutosRetraso===0);
-  if(sf==='tarde') regs=regs.filter(r=>r.multaTotal>0);
-  if(q) regs=regs.filter(r=>{
-    const a=DB.asistentes.find(x=>x.cedula===r.cedula);
-    return a&&((a.nombre+' '+a.apellidos).toLowerCase().includes(q)||a.cedula.includes(q));
-  });
-
-  const pages=Math.max(1,Math.ceil(regs.length/LOG_PER_PAGE));
+  if(sf==='ok') regs=regs.filter(r=>r.minutos_retraso===0);
+  if(sf==='tarde') regs=regs.filter(r=>r.multa_total>0);
+  if(q) regs=regs.filter(r=>{const a=C.asistentes.find(x=>x.cedula===r.cedula);return a&&((a.nombre+' '+a.apellidos).toLowerCase().includes(q)||a.cedula.includes(q));});
+  const pages=Math.max(1,Math.ceil(regs.length/LOG_PER));
   logPage=Math.min(logPage,pages-1);
-  const slice=regs.slice(logPage*LOG_PER_PAGE,(logPage+1)*LOG_PER_PAGE);
-
+  const slice=regs.slice(logPage*LOG_PER,(logPage+1)*LOG_PER);
   const tbody=document.getElementById('tb-log');
-  if(!slice.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No hay registros.</td></tr>'; }
-  else {
-    tbody.innerHTML=slice.map(r=>{
-      const a=DB.asistentes.find(x=>x.cedula===r.cedula);
-      const j=DB.jornadas.find(x=>x.id===r.jornadaId);
-      const dt=new Date(r.ts);
-      const hora=dt.toLocaleTimeString('es-CO',{hour12:false});
-      const fecha=dt.toLocaleDateString('es-CO');
-      return `<tr>
-        <td>${a?esc(a.nombre+' '+a.apellidos):`<span style="color:var(--muted)">${r.cedula}</span>`}</td>
-        <td>${r.cedula}</td>
-        <td>${esc(a?.capitulo||'—')}</td>
-        <td>${j?esc(j.nombre):'<span style="color:var(--muted)">—</span>'}</td>
-        <td style="font-variant-numeric:tabular-nums">${fecha} <strong>${hora}</strong></td>
-        <td>${r.minutosRetraso>0?`<span class="badge b-danger">+${r.minutosRetraso} min</span>`:'<span class="badge b-ok">A tiempo</span>'}</td>
-        <td>${r.multaTotal>0?`<span class="badge b-danger">$${fmt(r.multaTotal)}</span>`:'<span class="badge b-ok">$0</span>'}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteRegistro('${r.id}')"><i class="fas fa-trash"></i></button></td>
-      </tr>`;
-    }).join('');
-  }
-
-  // Pagination
-  const pag=document.getElementById('pag-log');
-  pag.innerHTML='';
-  if(pages>1){
-    for(let i=0;i<pages;i++){
-      const b=document.createElement('button');
-      b.className='pag-btn'+(i===logPage?' active':'');
-      b.textContent=i+1;
-      b.onclick=(()=>{const p=i;return()=>{logPage=p;renderLog();};})();
-      pag.appendChild(b);
-    }
-  }
+  if(!slice.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:22px">Sin registros.</td></tr>';return;}
+  tbody.innerHTML=slice.map(r=>{
+    const a=C.asistentes.find(x=>x.cedula===r.cedula);
+    const j=C.jornadas.find(x=>x.id===r.jornada_id);
+    const dt=new Date(r.ts);
+    return `<tr>
+      <td>${a?esc(a.nombre+' '+a.apellidos):`<span style="color:var(--muted)">${r.cedula}</span>`}</td>
+      <td>${r.cedula}</td>
+      <td>${esc(a?.capitulo||'—')}</td>
+      <td>${j?esc(j.nombre):'—'}</td>
+      <td style="font-variant-numeric:tabular-nums">${dt.toLocaleDateString('es-CO')} <strong>${dt.toLocaleTimeString('es-CO',{hour12:false})}</strong></td>
+      <td>${r.minutos_retraso>0?`<span class="badge b-danger">+${r.minutos_retraso} min</span>`:'<span class="badge b-ok">A tiempo</span>'}</td>
+      <td>${r.multa_total>0?`<span class="badge b-danger">$${fmt(r.multa_total)}</span>`:'<span class="badge b-ok">$0</span>'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRegistro('${r.id}')"><i class="fas fa-trash"></i></button></td>
+    </tr>`;
+  }).join('');
+  const pag=document.getElementById('pag-log'); pag.innerHTML='';
+  if(pages>1) for(let i=0;i<pages;i++){const b=document.createElement('button');b.className='pag-btn'+(i===logPage?' active':'');b.textContent=i+1;b.onclick=(p=>()=>{logPage=p;renderLog();})(i);pag.appendChild(b);}
 }
 
-function deleteRegistro(id){
-  if(!confirm('¿Eliminar este registro de asistencia?')) return;
-  DB.registros=DB.registros.filter(r=>r.id!==id);
-  saveDB(); renderLog(); updateStats();
+async function deleteRegistro(id){
+  if(!confirm('¿Eliminar este registro?')) return;
+  const {error}=await db.from('registros').delete().eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  C.registros=C.registros.filter(r=>r.id!==id);
+  renderLog(); updateStats();
 }
 
 // ══════════════════════════════════════════
 //  REPORTES
 // ══════════════════════════════════════════
 function renderReportes(){
-  const total=DB.registros.length;
-  const totalMultas=DB.registros.reduce((s,r)=>s+(r.multaTotal||0),0);
-  const aTiempo=DB.registros.filter(r=>r.minutosRetraso===0).length;
-  const conMulta=DB.registros.filter(r=>r.multaTotal>0).length;
+  const total=C.registros.length;
+  const totalM=C.registros.reduce((s,r)=>s+(r.multa_total||0),0);
+  const aTiempo=C.registros.filter(r=>r.minutos_retraso===0).length;
+  const conM=C.registros.filter(r=>r.multa_total>0).length;
   document.getElementById('rp-reg').textContent=total;
-  document.getElementById('rp-multas').textContent='$'+fmt(totalMultas);
-  document.getElementById('rp-pct').textContent=total>0?Math.round(aTiempo/total*100)+'%':'—';
-  document.getElementById('rp-prom').textContent=conMulta>0?'$'+fmt(Math.round(totalMultas/conMulta)):'$0';
-
-  // By chapter
+  document.getElementById('rp-multas').textContent='$'+fmt(totalM);
+  document.getElementById('rp-pct').textContent=total?Math.round(aTiempo/total*100)+'%':'—';
+  document.getElementById('rp-prom').textContent=conM?'$'+fmt(Math.round(totalM/conM)):'$0';
   const caps={};
-  DB.asistentes.forEach(a=>{ (caps[a.capitulo||'Sin capítulo']||(caps[a.capitulo||'Sin capítulo']={count:0,regs:0,multas:0})).count++; });
-  DB.registros.forEach(r=>{
-    const a=DB.asistentes.find(x=>x.cedula===r.cedula);
-    const k=a?.capitulo||'Sin capítulo';
-    if(!caps[k]) caps[k]={count:0,regs:0,multas:0};
-    caps[k].regs++; caps[k].multas+=r.multaTotal||0;
-  });
-  document.getElementById('tb-cap').innerHTML=Object.entries(caps).sort((a,b)=>b[1].multas-a[1].multas)
-    .map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.count}</td><td>${v.regs}</td><td>${v.multas>0?`<span class="badge b-danger">$${fmt(v.multas)}</span>`:'$0'}</td></tr>`).join('');
-
-  // By jornada
+  C.asistentes.forEach(a=>{const k=a.capitulo||'Sin capítulo';if(!caps[k]) caps[k]={count:0,regs:0,multas:0};caps[k].count++;});
+  C.registros.forEach(r=>{const a=C.asistentes.find(x=>x.cedula===r.cedula);const k=a?.capitulo||'Sin capítulo';if(!caps[k]) caps[k]={count:0,regs:0,multas:0};caps[k].regs++;caps[k].multas+=r.multa_total||0;});
+  document.getElementById('tb-cap').innerHTML=Object.entries(caps).sort((a,b)=>b[1].multas-a[1].multas).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.count}</td><td>${v.regs}</td><td>${v.multas?`<span class="badge b-danger">$${fmt(v.multas)}</span>`:'$0'}</td></tr>`).join('');
   const jregs={};
-  DB.jornadas.forEach(j=>{ jregs[j.id]={nombre:j.nombre,regs:0,conM:0,total:0}; });
-  DB.registros.forEach(r=>{
-    if(r.jornadaId&&jregs[r.jornadaId]){
-      jregs[r.jornadaId].regs++;
-      if(r.multaTotal>0){jregs[r.jornadaId].conM++;jregs[r.jornadaId].total+=r.multaTotal;}
-    }
-  });
-  document.getElementById('tb-jrep').innerHTML=Object.values(jregs)
-    .map(j=>`<tr><td>${esc(j.nombre)}</td><td>${j.regs}</td><td>${j.conM>0?`<span class="badge b-danger">${j.conM}</span>`:'0'}</td><td>${j.total>0?`$${fmt(j.total)}`:'$0'}</td></tr>`).join('');
+  C.jornadas.forEach(j=>{jregs[j.id]={nombre:j.nombre,regs:0,conM:0,total:0};});
+  C.registros.forEach(r=>{if(r.jornada_id&&jregs[r.jornada_id]){jregs[r.jornada_id].regs++;if(r.multa_total>0){jregs[r.jornada_id].conM++;jregs[r.jornada_id].total+=r.multa_total;}}});
+  document.getElementById('tb-jrep').innerHTML=Object.values(jregs).map(j=>`<tr><td>${esc(j.nombre)}</td><td>${j.regs}</td><td>${j.conM?`<span class="badge b-danger">${j.conM}</span>`:'0'}</td><td>${j.total?`$${fmt(j.total)}`:'$0'}</td></tr>`).join('');
 }
 
 // ══════════════════════════════════════════
-//  CÓDIGOS
+//  CREDENCIALES QR
 // ══════════════════════════════════════════
+function qrUrl(data, size){ return `https://api.qrserver.com/v1/create-qr-code/?size=${size||128}x${size||128}&data=${encodeURIComponent(data)}&format=png&ecc=M`; }
+
 function renderCodigos(){
-  const q=(document.getElementById('fc-search').value||'').toLowerCase();
-  const list=q?DB.asistentes.filter(a=>
-    a.cedula.includes(q)||(a.nombre+' '+a.apellidos).toLowerCase().includes(q)||a.capitulo?.toLowerCase().includes(q)
-  ):DB.asistentes;
+  const q=(document.getElementById('fc-search')?.value||'').toLowerCase();
+  const list=q?C.asistentes.filter(a=>a.cedula.includes(q)||(a.nombre+' '+a.apellidos).toLowerCase().includes(q)||(a.capitulo||'').toLowerCase().includes(q)):C.asistentes;
   const sorted=[...list].sort((a,b)=>(a.nombre+a.apellidos).localeCompare(b.nombre+b.apellidos));
-  document.getElementById('codes-grid').innerHTML=sorted.map(a=>`
+  const grid=document.getElementById('codes-grid');
+  const loading=document.getElementById('codes-loading');
+  loading.style.display='none';
+  if(!sorted.length){grid.innerHTML='<p style="color:var(--muted);padding:20px">No hay asistentes.</p>';return;}
+  grid.innerHTML=sorted.map(a=>`
     <div class="code-card">
+      <img src="${qrUrl(a.cedula,128)}" width="128" height="128" alt="QR ${esc(a.cedula)}" loading="lazy">
       <div class="big-code">${a.codigo}</div>
       <div class="cc-name">${esc(a.nombre+' '+a.apellidos)}</div>
-      <div class="cc-info">CC ${a.cedula}${a.capitulo?' · '+esc(a.capitulo):''}</div>
-    </div>
-  `).join('');
+      <div class="cc-info">CC ${esc(a.cedula)}${a.capitulo?' · '+esc(a.capitulo):''}</div>
+    </div>`).join('');
 }
 
 // ══════════════════════════════════════════
 //  MULTA MANUAL
 // ══════════════════════════════════════════
 let multaTargetCedula=null;
-function openMultaManual(cedula, nombre){
+function openMultaManual(cedula,nombre){
   multaTargetCedula=cedula;
-  document.getElementById('mm-nombre-label').textContent='Aplicar multa a: '+nombre;
+  document.getElementById('mm-label').textContent='Aplicar multa a: '+nombre;
   document.getElementById('mm-nota').value='';
   toggleMontoManual();
   document.getElementById('modal-multa').classList.add('show');
 }
-function toggleMontoManual(){
-  const v=document.getElementById('mm-concepto').value;
-  document.getElementById('mm-custom-group').style.display=v==='custom'?'block':'none';
-}
-function saveMultaManual(){
+function toggleMontoManual(){ document.getElementById('mm-custom').style.display=document.getElementById('mm-concepto').value==='custom'?'block':'none'; }
+async function saveMultaManual(){
   const concepto=document.getElementById('mm-concepto').value;
   const nota=document.getElementById('mm-nota').value;
   const monto=concepto==='custom'?parseInt(document.getElementById('mm-monto').value)||0:parseInt(concepto)||0;
-  DB.multas_extra.push({id:uid(),cedula:multaTargetCedula,monto,nota,ts:new Date().toISOString()});
-  saveDB(); closeModal('modal-multa'); updateStats();
-  alert(`Multa de $${fmt(monto)} aplicada correctamente.`);
+  const btn=document.getElementById('mm-save-btn');
+  btn.disabled=true;
+  try{
+    await db.from('multas_extra').insert({cedula:multaTargetCedula,monto,concepto,nota,ts:new Date().toISOString()});
+    closeModal('modal-multa');
+    alert(`Multa de $${fmt(monto)} aplicada.`);
+  }catch(e){alert('Error: '+e.message);}
+  finally{btn.disabled=false;}
 }
 
 // ══════════════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════════════
-function saveConfig(){
-  DB.config.multaMin=parseInt(document.getElementById('cfg-min').value)||600;
-  DB.config.multaKit=parseInt(document.getElementById('cfg-kit').value)||900;
-  saveDB();
-  document.getElementById('j-multa-display').textContent=fmt(DB.config.multaMin);
+async function saveConfig(){
+  const multa_min=parseInt(document.getElementById('cfg-min').value)||600;
+  const multa_kit=parseInt(document.getElementById('cfg-kit').value)||900;
+  const {error}=await db.from('config').update({multa_min,multa_kit}).eq('id',1);
+  if(error){alert('Error: '+error.message);return;}
+  C.config.multa_min=multa_min; C.config.multa_kit=multa_kit;
+  document.getElementById('j-multa-display').textContent=fmt(multa_min);
 }
 
-function borrarTodo(){
-  if(!confirm('⚠️ ¿Eliminar TODOS los datos del sistema?\n\nEsta acción es irreversible.')) return;
+async function borrarTodo(){
+  if(!confirm('⚠️ ¿Eliminar TODOS los datos?\n\nEsta acción borrará asistentes, registros y jornadas en Supabase.')) return;
   if(!confirm('Confirmación final: ¿Seguro?')) return;
-  DB={asistentes:[],jornadas:[],registros:[],multas_extra:[],config:{multaMin:600,multaKit:900}};
-  saveDB(); updateStats(); renderAsistentes(); alert('Todos los datos han sido eliminados.');
+  showLoader('Borrando datos…');
+  await Promise.all([
+    db.from('registros').delete().gte('ts','2000-01-01'),
+    db.from('multas_extra').delete().gte('ts','2000-01-01'),
+    db.from('asistentes').delete().neq('id','00000000-0000-0000-0000-000000000000'),
+    db.from('jornadas').delete().neq('id','00000000-0000-0000-0000-000000000000'),
+  ]);
+  C={asistentes:[],jornadas:[],registros:[],multas_extra:[],config:C.config};
+  hideLoader(); updateStats();
+  alert('Datos eliminados.');
 }
 
 function exportBackup(){
-  const json=JSON.stringify(DB,null,2);
-  const blob=new Blob([json],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`backup_SNC2026_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
-  a.click();
+  const blob=new Blob([JSON.stringify({asistentes:C.asistentes,jornadas:C.jornadas,registros:C.registros,config:C.config},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`backup_SNC2026_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`; a.click();
 }
 function importBackup(input){
-  const file=input.files[0]; if(!file) return;
   const reader=new FileReader();
-  reader.onload=e=>{
+  reader.onload=async e=>{
     try{
       const data=JSON.parse(e.target.result);
-      if(!data.asistentes||!data.jornadas||!data.registros) throw new Error('Formato inválido');
-      if(!confirm(`¿Restaurar backup?\nAsistentes: ${data.asistentes.length}\nRegistros: ${data.registros.length}\n\nEsto sobreescribirá los datos actuales.`)) return;
-      DB=data; saveDB(); updateStats(); renderAsistentes(); buildJornadaSelect();
-      alert('Backup restaurado correctamente.');
-    }catch(e){ alert('Error al restaurar: '+e.message); }
+      if(!confirm(`Restaurar backup?\nAsistentes: ${data.asistentes?.length||0}, Registros: ${data.registros?.length||0}\n\nSobreescribirá los datos actuales.`)) return;
+      showLoader('Restaurando backup…');
+      if(data.asistentes?.length){
+        await db.from('asistentes').delete().neq('id','00000000-0000-0000-0000-000000000000');
+        for(let i=0;i<data.asistentes.length;i+=100) await db.from('asistentes').insert(data.asistentes.slice(i,i+100));
+        C.asistentes=data.asistentes;
+      }
+      if(data.jornadas?.length){
+        await db.from('jornadas').delete().neq('id','00000000-0000-0000-0000-000000000000');
+        await db.from('jornadas').insert(data.jornadas);
+        C.jornadas=data.jornadas;
+      }
+      if(data.registros?.length){
+        await db.from('registros').delete().gte('ts','2000-01-01');
+        for(let i=0;i<data.registros.length;i+=100) await db.from('registros').insert(data.registros.slice(i,i+100));
+        C.registros=data.registros;
+      }
+      hideLoader(); updateStats(); buildJornadaSelects();
+      alert('Backup restaurado.');
+    }catch(e){hideLoader();alert('Error: '+e.message);}
     input.value='';
   };
-  reader.readAsText(file);
+  reader.readAsText(input.files[0]);
 }
 
 // ══════════════════════════════════════════
 //  EXPORTS
 // ══════════════════════════════════════════
-function exportAsistenciaExcel(){
-  if(!DB.registros.length){ alert('No hay registros de asistencia para exportar.'); return; }
-  const rows=DB.registros.map(r=>{
-    const a=DB.asistentes.find(x=>x.cedula===r.cedula);
-    const j=DB.jornadas.find(x=>x.id===r.jornadaId);
+async function exportAsistenciaExcel(){
+  await loadRegistrosIfNeeded();
+  if(!C.registros.length){alert('No hay registros.');return;}
+  const rows=C.registros.map(r=>{
+    const a=C.asistentes.find(x=>x.cedula===r.cedula);
+    const j=C.jornadas.find(x=>x.id===r.jornada_id);
     const dt=new Date(r.ts);
-    return{'Cédula':r.cedula,'Nombre':a?.nombre||'','Apellidos':a?.apellidos||'','Capítulo':a?.capitulo||'','Código':a?.codigo||'','Jornada':j?.nombre||'','Fecha':dt.toLocaleDateString('es-CO'),'Hora':dt.toLocaleTimeString('es-CO',{hour12:false}),'Minutos tardío':r.minutosRetraso,'Multa base ($)':r.multaBase,'Cargo kit ($)':r.multaExtra,'Multa total ($)':r.multaTotal};
+    return{'Cédula':r.cedula,'Nombre':a?.nombre||'','Apellidos':a?.apellidos||'','Capítulo':a?.capitulo||'','Código':a?.codigo||'','Jornada':j?.nombre||'','Fecha':dt.toLocaleDateString('es-CO'),'Hora':dt.toLocaleTimeString('es-CO',{hour12:false}),'Minutos tardío':r.minutos_retraso,'Multa base ($)':r.multa_base,'Cargo kit ($)':r.multa_extra,'Multa total ($)':r.multa_total};
   });
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.json_to_sheet(rows);
   ws['!cols']=[{wch:14},{wch:16},{wch:20},{wch:16},{wch:8},{wch:28},{wch:12},{wch:10},{wch:14},{wch:14},{wch:12},{wch:14}];
   XLSX.utils.book_append_sheet(wb,ws,'Asistencia');
-
-  // Summary sheet
-  const caps={};
-  DB.asistentes.forEach(a=>{ if(!caps[a.capitulo||'Sin capítulo']) caps[a.capitulo||'Sin capítulo']={asistentes:0,registros:0,multas:0}; caps[a.capitulo||'Sin capítulo'].asistentes++; });
-  DB.registros.forEach(r=>{ const a=DB.asistentes.find(x=>x.cedula===r.cedula); const k=a?.capitulo||'Sin capítulo'; if(caps[k]){caps[k].registros++;caps[k].multas+=r.multaTotal||0;} });
-  const sumRows=Object.entries(caps).map(([k,v])=>({'Capítulo':k,'Asistentes':v.asistentes,'Registros':v.registros,'Total multas ($)':v.multas}));
-  const ws2=XLSX.utils.json_to_sheet(sumRows);
-  XLSX.utils.book_append_sheet(wb,ws2,'Resumen');
-
-  XLSX.writeFile(wb,`asistencia_SNC2026_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb,`asistencia_SNC2026_${todayStr()}.xlsx`);
 }
 
 function exportAsistentesCSV(){
-  const rows=DB.asistentes.map(a=>{
-    const regs=DB.registros.filter(r=>r.cedula===a.cedula);
-    const m=regs.reduce((s,r)=>s+(r.multaTotal||0),0);
-    return[a.cedula,a.nombre,a.apellidos,a.capitulo||'',a.codigo,regs.length,m].join(',');
+  const rows=C.asistentes.map(a=>{
+    const regs=C.registros.filter(r=>r.cedula===a.cedula);
+    return[a.cedula,a.nombre,a.apellidos,a.capitulo||'',a.codigo,regs.length,regs.reduce((s,r)=>s+(r.multa_total||0),0)].join(',');
   });
-  downloadCSV(['cedula,nombre,apellidos,capitulo,codigo,num_registros,total_multas',...rows].join('\n'),'asistentes_SNC2026.csv');
+  dlCSV(['cedula,nombre,apellidos,capitulo,codigo,registros,multas',...rows].join('\n'),'asistentes_SNC2026.csv');
 }
-function exportMultasCSV(){
-  const rows=DB.registros.filter(r=>r.multaTotal>0).map(r=>{
-    const a=DB.asistentes.find(x=>x.cedula===r.cedula);
-    const j=DB.jornadas.find(x=>x.id===r.jornadaId);
+
+async function exportMultasCSV(){
+  await loadRegistrosIfNeeded();
+  const rows=C.registros.filter(r=>r.multa_total>0).map(r=>{
+    const a=C.asistentes.find(x=>x.cedula===r.cedula);
+    const j=C.jornadas.find(x=>x.id===r.jornada_id);
     const dt=new Date(r.ts);
-    return[r.cedula,a?.nombre||'',a?.apellidos||'',a?.capitulo||'',j?.nombre||'',dt.toLocaleDateString('es-CO'),dt.toLocaleTimeString('es-CO',{hour12:false}),r.minutosRetraso,r.multaBase,r.multaExtra,r.multaTotal].join(',');
+    return[r.cedula,a?.nombre||'',a?.apellidos||'',a?.capitulo||'',j?.nombre||'',dt.toLocaleDateString('es-CO'),dt.toLocaleTimeString('es-CO',{hour12:false}),r.minutos_retraso,r.multa_base,r.multa_extra,r.multa_total].join(',');
   });
-  downloadCSV(['cedula,nombre,apellidos,capitulo,jornada,fecha,hora,minutos_retraso,multa_base,cargo_kit,multa_total',...rows].join('\n'),'multas_SNC2026.csv');
+  dlCSV(['cedula,nombre,apellidos,capitulo,jornada,fecha,hora,minutos,multa_base,cargo_kit,multa_total',...rows].join('\n'),'multas_SNC2026.csv');
 }
-function downloadCSV(content,filename){
+
+function dlCSV(content,name){
   const blob=new Blob(['﻿'+content],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
 }
 
 // ══════════════════════════════════════════
-//  MODAL HELPERS
+//  MODALS
 // ══════════════════════════════════════════
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('show'); }));
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.classList.remove('show');}));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show')); });
 
 // ══════════════════════════════════════════
-//  UTILS
+//  BOOT
 // ══════════════════════════════════════════
-function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-// ══════════════════════════════════════════
-//  INIT
-// ══════════════════════════════════════════
-loadDB();
-updateStats();
-buildJornadaSelect();
-document.getElementById('qs-input').focus();
+init();
 </script>
 </body>
 </html>
