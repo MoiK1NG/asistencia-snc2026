@@ -47,10 +47,14 @@ CREATE TABLE IF NOT EXISTS public.config (
   id        integer PRIMARY KEY DEFAULT 1,
   multa_min integer DEFAULT 600,
   multa_kit integer DEFAULT 900,
+  pin       text    DEFAULT '2026',
   CONSTRAINT single_row CHECK (id = 1)
 );
-INSERT INTO public.config (id, multa_min, multa_kit)
-VALUES (1, 600, 900) ON CONFLICT DO NOTHING;
+INSERT INTO public.config (id, multa_min, multa_kit, pin)
+VALUES (1, 600, 900, '2026') ON CONFLICT DO NOTHING;
+-- Agregar columna pin si ya existe la tabla sin ella
+ALTER TABLE public.config ADD COLUMN IF NOT EXISTS pin text DEFAULT '2026';
+UPDATE public.config SET pin = '2026' WHERE pin IS NULL;
 
 -- ─── Row Level Security ───
 ALTER TABLE public.asistentes   ENABLE ROW LEVEL SECURITY;

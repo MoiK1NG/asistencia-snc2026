@@ -1277,7 +1277,7 @@ function renderLog(){
 // ══════════════════════════════════════════
 //  PIN DE SEGURIDAD
 // ══════════════════════════════════════════
-function getPin(){ return localStorage.getItem('snc_pin')||'2026'; }
+function getPin(){ return (C.config && C.config.pin) || '2026'; }
 
 let _pinCb=null;
 function pedirPin(titulo,desc,callback){
@@ -1294,7 +1294,7 @@ function closePinModal(){
   _pinCb=null;
 }
 function confirmPin(){
-  const entered=document.getElementById('pin-input').value;
+  const entered=document.getElementById('pin-input').value.trim();
   if(entered===getPin()){
     const cb=_pinCb;       // save before closePinModal nulls it
     closePinModal();
@@ -1306,8 +1306,8 @@ function confirmPin(){
   }
 }
 
-function cambiarPin(){
-  const actual=document.getElementById('cfg-pin-actual').value;
+async function cambiarPin(){
+  const actual=document.getElementById('cfg-pin-actual').value.trim();
   const nuevo=document.getElementById('cfg-pin-nuevo').value.trim();
   const msg=document.getElementById('cfg-pin-msg');
   if(actual!==getPin()){
@@ -1316,10 +1316,12 @@ function cambiarPin(){
   if(!nuevo||nuevo.length<3){
     msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='El nuevo código debe tener al menos 3 caracteres.'; return;
   }
-  localStorage.setItem('snc_pin',nuevo);
+  const {error}=await db.from('config').update({pin:nuevo}).eq('id',1);
+  if(error){ msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='Error al guardar: '+error.message; return; }
+  C.config.pin=nuevo;
   document.getElementById('cfg-pin-actual').value='';
   document.getElementById('cfg-pin-nuevo').value='';
-  msg.style.display='block'; msg.style.color='var(--success,#16a34a)'; msg.textContent='✓ Código actualizado correctamente.';
+  msg.style.display='block'; msg.style.color='var(--success,#16a34a)'; msg.textContent='✓ Código actualizado en todos los dispositivos.';
   setTimeout(()=>{ msg.style.display='none'; },3000);
 }
 
