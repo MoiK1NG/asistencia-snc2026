@@ -365,6 +365,7 @@ tbody tr:hover td{background:#f8faff}
         <div class="btn-row">
           <button class="btn btn-accent" onclick="exportAsistenciaExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
           <button class="btn btn-ghost" onclick="exportMultasCSV()"><i class="fas fa-gavel"></i> Multas CSV</button>
+          <button class="btn btn-danger btn-sm" onclick="pedirPin('Borrar todos los registros','Esta acción elimina todos los registros de asistencia. Los asistentes y jornadas NO se borran.',borrarTodosRegistros)"><i class="fas fa-trash-can"></i> Borrar todos</button>
         </div>
       </div>
       <div class="card">
@@ -453,6 +454,22 @@ tbody tr:hover td{background:#f8faff}
           </tbody>
         </table></div>
       </div>
+      <div class="card">
+        <div class="card-title"><i class="fas fa-lock"></i> Código de seguridad</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Se exige para borrar registros individuales o todos los registros de asistencia. Por defecto: <strong>2026</strong></p>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="margin:0;flex:1;min-width:180px">
+            <label>Código actual</label>
+            <input type="password" class="form-control" id="cfg-pin-actual" placeholder="Código actual" maxlength="30" autocomplete="off">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:180px">
+            <label>Nuevo código</label>
+            <input type="password" class="form-control" id="cfg-pin-nuevo" placeholder="Nuevo código" maxlength="30" autocomplete="off">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="cambiarPin()">Cambiar</button>
+        </div>
+        <p id="cfg-pin-msg" style="font-size:12px;margin-top:8px;display:none"></p>
+      </div>
       <div class="card" style="border-color:#fecaca">
         <div class="card-title" style="color:var(--danger)"><i class="fas fa-triangle-exclamation"></i> Zona peligrosa</div>
         <div class="btn-row">
@@ -533,6 +550,24 @@ tbody tr:hover td{background:#f8faff}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-multa')">Cancelar</button>
       <button class="btn btn-danger" id="mm-save-btn" onclick="saveMultaManual()"><i class="fas fa-gavel"></i> Aplicar multa</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL PIN ══ -->
+<div class="overlay" id="modal-pin">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-hdr"><h2 id="pin-title">Código de seguridad</h2><button class="modal-close" onclick="closePinModal()">&times;</button></div>
+    <p id="pin-desc" style="font-size:13px;color:var(--muted);margin-bottom:14px"></p>
+    <div class="form-group">
+      <label>Código</label>
+      <input type="password" class="form-control" id="pin-input" placeholder="••••" maxlength="30" autocomplete="off"
+        onkeydown="if(event.key==='Enter')confirmPin()">
+    </div>
+    <p id="pin-error" style="font-size:12px;color:var(--danger);margin-top:4px;display:none"><i class="fas fa-circle-xmark"></i> Código incorrecto.</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closePinModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmPin()"><i class="fas fa-unlock"></i> Confirmar</button>
     </div>
   </div>
 </div>
@@ -1236,12 +1271,86 @@ function renderLog(){
   if(pages>1) for(let i=0;i<pages;i++){const b=document.createElement('button');b.className='pag-btn'+(i===logPage?' active':'');b.textContent=i+1;b.onclick=(p=>()=>{logPage=p;renderLog();})(i);pag.appendChild(b);}
 }
 
-async function deleteRegistro(id){
-  if(!confirm('¿Eliminar este registro?')) return;
-  const {error}=await db.from('registros').delete().eq('id',id);
-  if(error){alert('Error: '+error.message);return;}
-  C.registros=C.registros.filter(r=>r.id!==id);
-  renderLog(); updateStats();
+// ══════════════════════════════════════════
+//  PIN DE SEGURIDAD
+// ══════════════════════════════════════════
+function getPin(){ return localStorage.getItem('snc_pin')||'2026'; }
+
+let _pinCb=null;
+function pedirPin(titulo,desc,callback){
+  document.getElementById('pin-title').textContent=titulo||'Código de seguridad';
+  document.getElementById('pin-desc').textContent=desc||'';
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-error').style.display='none';
+  _pinCb=callback;
+  document.getElementById('modal-pin').classList.add('show');
+  setTimeout(()=>document.getElementById('pin-input').focus(),80);
+}
+function closePinModal(){
+  document.getElementById('modal-pin').classList.remove('show');
+  _pinCb=null;
+}
+function confirmPin(){
+  const entered=document.getElementById('pin-input').value;
+  if(entered===getPin()){
+    closePinModal();
+    if(_pinCb) _pinCb();
+  } else {
+    document.getElementById('pin-error').style.display='block';
+    document.getElementById('pin-input').value='';
+    document.getElementById('pin-input').focus();
+  }
+}
+
+function cambiarPin(){
+  const actual=document.getElementById('cfg-pin-actual').value;
+  const nuevo=document.getElementById('cfg-pin-nuevo').value.trim();
+  const msg=document.getElementById('cfg-pin-msg');
+  if(actual!==getPin()){
+    msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='El código actual es incorrecto.'; return;
+  }
+  if(!nuevo||nuevo.length<3){
+    msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='El nuevo código debe tener al menos 3 caracteres.'; return;
+  }
+  localStorage.setItem('snc_pin',nuevo);
+  document.getElementById('cfg-pin-actual').value='';
+  document.getElementById('cfg-pin-nuevo').value='';
+  msg.style.display='block'; msg.style.color='var(--success,#16a34a)'; msg.textContent='✓ Código actualizado correctamente.';
+  setTimeout(()=>{ msg.style.display='none'; },3000);
+}
+
+// ══════════════════════════════════════════
+//  BORRAR REGISTRO INDIVIDUAL
+// ══════════════════════════════════════════
+function deleteRegistro(id){
+  pedirPin(
+    'Eliminar registro',
+    'Ingresa el código de seguridad para borrar este registro de asistencia.',
+    async ()=>{
+      const {error}=await db.from('registros').delete().eq('id',id);
+      if(error){alert('Error: '+error.message);return;}
+      C.registros=C.registros.filter(r=>r.id!==id);
+      renderLog(); updateStats();
+    }
+  );
+}
+
+// ══════════════════════════════════════════
+//  BORRAR TODOS LOS REGISTROS
+// ══════════════════════════════════════════
+function borrarTodosRegistros(){
+  pedirPin(
+    'Borrar todos los registros',
+    'Esta acción elimina TODOS los registros de asistencia permanentemente. Los asistentes y jornadas no se borran.',
+    async ()=>{
+      showLoader('Borrando registros…');
+      const {error}=await db.from('registros').delete().neq('id','00000000-0000-0000-0000-000000000000');
+      hideLoader();
+      if(error){alert('Error: '+error.message);return;}
+      C.registros=[]; registrosLoaded=false;
+      renderLog(); updateStats();
+    }
+  );
 }
 
 // ══════════════════════════════════════════
