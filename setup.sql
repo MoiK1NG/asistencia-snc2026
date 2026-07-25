@@ -1,9 +1,9 @@
 -- =================================================
 -- SNC 2026 Barranquilla — Supabase Database Setup
--- Ejecutar en: Dashboard → SQL Editor → New Query
+-- Re-ejecutable: usa IF NOT EXISTS y DROP IF EXISTS
 -- =================================================
 
--- Asistentes
+-- Tablas
 CREATE TABLE IF NOT EXISTS public.asistentes (
   id         uuid    DEFAULT gen_random_uuid() PRIMARY KEY,
   cedula     text    UNIQUE NOT NULL,
@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS public.asistentes (
   created_at timestamptz DEFAULT now()
 );
 
--- Jornadas
 CREATE TABLE IF NOT EXISTS public.jornadas (
   id         uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   nombre     text NOT NULL,
@@ -24,7 +23,6 @@ CREATE TABLE IF NOT EXISTS public.jornadas (
   created_at timestamptz DEFAULT now()
 );
 
--- Registros de asistencia
 CREATE TABLE IF NOT EXISTS public.registros (
   id              uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   cedula          text NOT NULL,
@@ -36,7 +34,6 @@ CREATE TABLE IF NOT EXISTS public.registros (
   multa_total     integer DEFAULT 0
 );
 
--- Multas manuales
 CREATE TABLE IF NOT EXISTS public.multas_extra (
   id       uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   cedula   text NOT NULL,
@@ -46,7 +43,6 @@ CREATE TABLE IF NOT EXISTS public.multas_extra (
   ts       timestamptz DEFAULT now()
 );
 
--- Configuración (fila única)
 CREATE TABLE IF NOT EXISTS public.config (
   id        integer PRIMARY KEY DEFAULT 1,
   multa_min integer DEFAULT 600,
@@ -56,12 +52,19 @@ CREATE TABLE IF NOT EXISTS public.config (
 INSERT INTO public.config (id, multa_min, multa_kit)
 VALUES (1, 600, 900) ON CONFLICT DO NOTHING;
 
--- ─── Row Level Security: acceso anónimo total ───
+-- ─── Row Level Security ───
 ALTER TABLE public.asistentes   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.jornadas     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.registros    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.multas_extra ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.config       ENABLE ROW LEVEL SECURITY;
+
+-- Eliminar políticas previas si existen, luego recrearlas
+DROP POLICY IF EXISTS "open" ON public.asistentes;
+DROP POLICY IF EXISTS "open" ON public.jornadas;
+DROP POLICY IF EXISTS "open" ON public.registros;
+DROP POLICY IF EXISTS "open" ON public.multas_extra;
+DROP POLICY IF EXISTS "open" ON public.config;
 
 CREATE POLICY "open" ON public.asistentes   FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON public.jornadas     FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
