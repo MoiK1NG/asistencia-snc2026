@@ -85,6 +85,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .suc-banner.ok{background:linear-gradient(135deg,#166534,#22c55e);color:#fff}
 .suc-banner.late{background:linear-gradient(135deg,#9a3412,#f97316);color:#fff}
 .suc-banner.notfound{background:linear-gradient(135deg,#991b1b,#ef4444);color:#fff}
+.suc-banner.warn{background:linear-gradient(135deg,#92400e,#f59e0b);color:#fff}
 @keyframes popIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
 .sb-icon{font-size:42px;margin-bottom:6px}
 .sb-name{font-size:21px;font-weight:700}
@@ -795,6 +796,15 @@ async function registrar(cedula, source){
   const jornadaSelId=source==='scanner'
     ?document.getElementById('scan-jornada').value
     :document.getElementById('qs-jornada').value;
+
+  if(!jornadaSelId){
+    const bannerId=source==='scanner'?'sb-scanner':'sb-dash';
+    const b=document.getElementById(bannerId);
+    b.innerHTML=`<div class="sb-icon">⚠️</div><div class="sb-name">Sin jornada seleccionada</div><div class="sb-detail">Elige la jornada activa antes de registrar asistencia.</div>`;
+    b.className='suc-banner show warn';
+    if(source==='scanner'){requestAnimationFrame(qrTick);}
+    return;
+  }
   const j=jornadaSelId?C.jornadas.find(x=>x.id===jornadaSelId):null;
 
   const now=new Date();
