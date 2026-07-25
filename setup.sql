@@ -72,6 +72,11 @@ CREATE POLICY "open" ON public.registros    FOR ALL TO anon, authenticated USING
 CREATE POLICY "open" ON public.multas_extra FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON public.config       FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
--- ─── Habilitar Realtime ───
-ALTER PUBLICATION supabase_realtime ADD TABLE public.registros;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.asistentes;
+-- ─── Habilitar Realtime (ignora si ya está agregada) ───
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.registros;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.asistentes;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
