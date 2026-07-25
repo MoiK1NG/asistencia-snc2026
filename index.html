@@ -474,7 +474,7 @@ tbody tr:hover td{background:#f8faff}
       <div class="card" style="border-color:#fecaca">
         <div class="card-title" style="color:var(--danger)"><i class="fas fa-triangle-exclamation"></i> Zona peligrosa</div>
         <div class="btn-row">
-          <button class="btn btn-danger btn-sm" onclick="borrarTodo()"><i class="fas fa-trash"></i> Borrar todos los datos</button>
+          <button class="btn btn-danger btn-sm" onclick="pedirPin('Borrar TODOS los datos','Elimina asistentes, jornadas, registros y multas. Acción irreversible.',borrarTodo)"><i class="fas fa-trash"></i> Borrar todos los datos</button>
           <button class="btn btn-ghost btn-sm" onclick="exportBackup()"><i class="fas fa-database"></i> Backup JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-backup').click()"><i class="fas fa-upload"></i> Restaurar backup</button>
           <input type="file" id="import-backup" accept=".json" style="display:none" onchange="importBackup(this)">
@@ -1445,8 +1445,6 @@ async function saveConfig(){
 }
 
 async function borrarTodo(){
-  if(!confirm('⚠️ ¿Eliminar TODOS los datos?\n\nEsta acción borrará asistentes, registros y jornadas en Supabase.')) return;
-  if(!confirm('Confirmación final: ¿Seguro?')) return;
   showLoader('Borrando datos…');
   await Promise.all([
     db.from('registros').delete().gte('ts','2000-01-01'),
