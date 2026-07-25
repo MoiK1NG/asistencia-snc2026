@@ -1218,13 +1218,14 @@ async function saveJornada(){
   finally{btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Guardar';}
 }
 
-async function deleteJornada(id){
+function deleteJornada(id){
   const j=C.jornadas.find(x=>x.id===id);
-  if(!confirm(`¿Eliminar jornada "${j.nombre}"?`)) return;
-  const {error}=await db.from('jornadas').delete().eq('id',id);
-  if(error){alert('Error: '+error.message);return;}
-  C.jornadas=C.jornadas.filter(x=>x.id!==id);
-  renderJornadas(); buildJornadaSelects();
+  pedirPin('Eliminar jornada',`Eliminar "${j.nombre}" (${j.fecha}). Acción irreversible.`, async ()=>{
+    const {error}=await db.from('jornadas').delete().eq('id',id);
+    if(error){alert('Error: '+error.message);return;}
+    C.jornadas=C.jornadas.filter(x=>x.id!==id);
+    renderJornadas(); buildJornadaSelects();
+  });
 }
 
 // ══════════════════════════════════════════
