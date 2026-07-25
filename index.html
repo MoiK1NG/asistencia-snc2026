@@ -1077,16 +1077,18 @@ async function saveAsistente(){
   finally{btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Guardar';}
 }
 
-async function deleteAsistente(id){
+function deleteAsistente(id){
   const a=C.asistentes.find(x=>x.id===id);
   const nr=C.registros.filter(r=>r.cedula===a.cedula).length;
-  if(!confirm(`¿Eliminar a "${a.nombre} ${a.apellidos}"?${nr?' También sus '+nr+' registro(s) de asistencia.':''}`)) return;
-  const {error}=await db.from('asistentes').delete().eq('id',id);
-  if(error){alert('Error: '+error.message);return;}
-  C.asistentes=C.asistentes.filter(x=>x.id!==id);
-  C.registros=C.registros.filter(r=>r.cedula!==a.cedula);
-  await db.from('registros').delete().eq('cedula',a.cedula);
-  renderAsistentes(); updateStats();
+  const desc=`Eliminar a "${a.nombre} ${a.apellidos}"${nr?' y sus '+nr+' registro(s) de asistencia':''}. Acción irreversible.`;
+  pedirPin('Eliminar asistente', desc, async ()=>{
+    const {error}=await db.from('asistentes').delete().eq('id',id);
+    if(error){alert('Error: '+error.message);return;}
+    C.asistentes=C.asistentes.filter(x=>x.id!==id);
+    C.registros=C.registros.filter(r=>r.cedula!==a.cedula);
+    await db.from('registros').delete().eq('cedula',a.cedula);
+    renderAsistentes(); updateStats();
+  });
 }
 
 function genCodigo(){
