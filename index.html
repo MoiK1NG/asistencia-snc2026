@@ -324,6 +324,7 @@ tbody tr:hover td{background:#f8faff}
           <button class="btn btn-ghost" onclick="document.getElementById('import-input').click()"><i class="fas fa-file-excel"></i> Importar Excel/CSV</button>
           <input type="file" id="import-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="importarAsistentes(this)">
           <button class="btn btn-primary" onclick="openModalAsistente()"><i class="fas fa-plus"></i> Nuevo</button>
+          <button class="btn btn-danger btn-sm" onclick="pedirPin('Borrar todos los asistentes','Esta acción elimina TODOS los asistentes y sus registros de asistencia permanentemente.',borrarTodosAsistentes)"><i class="fas fa-trash-can"></i> Borrar todos</button>
         </div>
       </div>
       <div class="card">
@@ -1339,6 +1340,25 @@ function deleteRegistro(id){
 // ══════════════════════════════════════════
 //  BORRAR TODOS LOS REGISTROS
 // ══════════════════════════════════════════
+function borrarTodosAsistentes(){
+  pedirPin(
+    'Borrar todos los asistentes',
+    'Se eliminarán TODOS los asistentes y todos sus registros de asistencia. Acción irreversible.',
+    async ()=>{
+      showLoader('Borrando asistentes…');
+      const [r1,r2]=await Promise.all([
+        db.from('registros').delete().gt('ts','1970-01-01T00:00:00'),
+        db.from('asistentes').delete().gt('created_at','1970-01-01T00:00:00')
+      ]);
+      hideLoader();
+      if(r1.error){alert('Error borrando registros: '+r1.error.message);return;}
+      if(r2.error){alert('Error borrando asistentes: '+r2.error.message);return;}
+      C.asistentes=[]; C.registros=[]; registrosLoaded=false;
+      renderAsistentes(); updateStats();
+    }
+  );
+}
+
 function borrarTodosRegistros(){
   pedirPin(
     'Borrar todos los registros',
