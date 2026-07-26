@@ -755,15 +755,30 @@ function saveSession(s){
   sessionStorage.setItem('snc_session', JSON.stringify(s));
 }
 
-function doLogin(){
+async function doLogin(){
   const email    = document.getElementById('login-email').value.trim().toLowerCase();
   const password = document.getElementById('login-password').value;
   const errEl    = document.getElementById('login-error');
+  const btn      = document.querySelector('.login-btn');
   errEl.textContent = '';
 
   if(!email){ errEl.textContent='Selecciona tu correo.'; return; }
   const user = USUARIOS[email];
   if(!user){ errEl.textContent='Correo no autorizado.'; return; }
+
+  // Si C.config.pin no está cargado aún (primer login en dispositivo nuevo),
+  // pre-cargar desde Supabase para que getAdminPw() use el PIN correcto.
+  if(!C.config || !C.config.pin){
+    btn.disabled = true;
+    try {
+      const {data} = await db.from('config').select('pin').single();
+      if(data && data.pin){
+        C.config = Object.assign({multa_min:600,multa_kit:900,id:1}, C.config, data);
+        localStorage.setItem('snc_pin', data.pin);
+      }
+    } catch(e){ /* usa fallback localStorage */ }
+    btn.disabled = false;
+  }
 
   let rol = null;
   if(password === getAdminPw() && user.rol === 'admin') rol = 'admin';
@@ -863,7 +878,10 @@ async function init(){
     if(rj.error) throw rj.error;
     C.asistentes = ra.data || [];
     C.jornadas   = rj.data || [];
-    if(!rc.error && rc.data) C.config = rc.data;
+    if(!rc.error && rc.data){
+      C.config = rc.data;
+      if(rc.data.pin) localStorage.setItem('snc_pin', rc.data.pin);
+    }
 
     // Load today's registros for stats
     const today = todayStr();
@@ -1571,6 +1589,7 @@ async function cambiarPin(){
   const {error}=await db.from('config').update({pin:nuevo}).eq('id',1);
   if(error){ msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='Error al guardar: '+error.message; return; }
   C.config.pin=nuevo;
+  localStorage.setItem('snc_pin', nuevo);
   document.getElementById('cfg-pin-actual').value='';
   document.getElementById('cfg-pin-nuevo').value='';
   msg.style.display='block'; msg.style.color='var(--success,#16a34a)'; msg.textContent='✓ Código actualizado en todos los dispositivos.';
