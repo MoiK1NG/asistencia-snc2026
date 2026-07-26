@@ -7,16 +7,64 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 :root{
   --primary:#0d2b6b;--primary2:#1640a0;--accent:#e8960f;--accent2:#f5a922;
+  --green:#2d7a3c;--gold:#f5a623;
   --success:#1e8c4a;--danger:#c0392b;--warning:#d68910;
   --bg:#f0f3fa;--card:#fff;--text:#1c2c3b;--muted:#6b7f94;--border:#dce4f0;
   --sw:250px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+
+/* ══ LOGIN SCREEN ══ */
+#login-screen{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:linear-gradient(145deg,#061429 0%,#0a1f52 40%,#0d2b6b 70%,#0e3070 100%)}
+#login-screen.hidden{display:none}
+#login-screen::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 50% at 20% 80%,rgba(45,122,60,.18) 0%,transparent 60%),
+             radial-gradient(ellipse 50% 40% at 80% 20%,rgba(245,166,35,.12) 0%,transparent 55%);
+  pointer-events:none}
+.login-card{position:relative;background:rgba(255,255,255,.06);backdrop-filter:blur(24px);
+  border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:40px 36px;
+  width:100%;max-width:420px;box-shadow:0 32px 80px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.05)}
+.login-logo{display:block;width:200px;margin:0 auto 8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4))}
+.login-subtitle{text-align:center;color:rgba(255,255,255,.5);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:32px}
+.login-title{text-align:center;color:#fff;font-size:22px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;color:rgba(255,255,255,.6);font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;margin-bottom:7px}
+.login-input{width:100%;padding:13px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.08);color:#fff;font-size:15px;font-family:inherit;outline:none;transition:border .2s}
+.login-input::placeholder{color:rgba(255,255,255,.3)}
+.login-input:focus{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.12)}
+.login-input option{background:#0d2b6b;color:#fff}
+.login-btn{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;font-size:15px;font-weight:700;
+  font-family:inherit;margin-top:8px;transition:all .2s;letter-spacing:.3px;
+  background:linear-gradient(135deg,#2d7a3c,#3a9b4e);color:#fff;box-shadow:0 4px 20px rgba(45,122,60,.4)}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(45,122,60,.55)}
+.login-btn:active{transform:translateY(0)}
+.login-error{color:#fca5a5;font-size:13px;text-align:center;margin-top:10px;min-height:20px}
+.login-footer{text-align:center;color:rgba(255,255,255,.25);font-size:11px;margin-top:24px}
+
+/* ══ USER BADGE ══ */
+.user-badge{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:30px;background:var(--bg);border:1px solid var(--border)}
+.user-badge .u-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.user-badge .u-avatar.admin{background:linear-gradient(135deg,var(--primary),var(--primary2))}
+.user-badge .u-avatar.reader{background:linear-gradient(135deg,var(--green),#3a9b4e)}
+.user-badge .u-name{font-size:12px;font-weight:600;color:var(--text);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-badge .u-role{font-size:10px;color:var(--muted)}
+.btn-logout{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--danger);font-size:12px;cursor:pointer;font-weight:600;transition:all .15s}
+.btn-logout:hover{background:#fee2e2;border-color:#fca5a5}
+.role-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.role-tag.admin{background:#dbeafe;color:#1e40af}
+.role-tag.reader{background:#d1fae5;color:#065f46}
+
+/* sidebar logo image */
+.sidebar-logo img{width:100%;max-width:130px;display:block;margin-bottom:6px;filter:brightness(0) invert(1)}
 
 /* ── Loader overlay ── */
 #loader{position:fixed;inset:0;background:rgba(13,43,107,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff;gap:16px}
@@ -216,23 +264,69 @@ tbody tr:hover td{background:#f8faff}
   <p id="loader-txt">Conectando con Supabase…</p>
 </div>
 
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="login-screen">
+  <div class="login-card">
+    <img class="login-logo" src="LOGOS/logo snc 2026 con contorno-01.png" alt="SNC 2026">
+    <p class="login-subtitle">Semana Nacional del Capítulo · Barranquilla 2026</p>
+    <h2 class="login-title">Sistema de Asistencia</h2>
+    <div class="login-field">
+      <label>Correo institucional</label>
+      <select id="login-email" class="login-input">
+        <option value="">— Selecciona tu correo —</option>
+        <optgroup label="Equipo organizador">
+          <option value="nathalia.quintana@aneiap.co">Nathalia Quintana</option>
+          <option value="mariaa.carmona@aneiap.co">María Alejandra Carmona</option>
+          <option value="elias.garcia@aneiap.co">Elias David Garcia</option>
+          <option value="geraldine.mendoza@aneiap.co">Geraldine Mendoza</option>
+          <option value="dylan.romero@aneiap.co">Dylan Romero</option>
+          <option value="jose.villareal@aneiap.co">Jose Angel Villareal</option>
+          <option value="daniel.villamizar@aneiap.co">Daniel Villamizar</option>
+          <option value="alessandro.villanueva@aneiap.co">Alessandro Villanueva</option>
+          <option value="lucenyth.lastra@aneiap.co">Lucenyth Elena Lastra</option>
+          <option value="dilan.lengua@aneiap.co">Dilan Lengua</option>
+          <option value="mariaa.mendoza@aneiap.co">María de los Ángeles Mendoza</option>
+          <option value="santi.albadan@aneiap.co">Santiago Albadan</option>
+          <option value="maria.castellanof@aneiap.co">María Castellano</option>
+        </optgroup>
+        <optgroup label="Administradores">
+          <option value="moises.camargo@aneiap.co">Moisés Camargo</option>
+          <option value="juan.berdugo@aneiap.co">Juan Sebastián Berdugo</option>
+          <option value="diego.bermudez@aneiap.co">Diego Bermúdez</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="login-password" class="login-input" placeholder="••••••••"
+        autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()"><i class="fas fa-arrow-right-to-bracket"></i> Ingresar</button>
+    <p class="login-error" id="login-error"></p>
+    <p class="login-footer">SNC 2026 · ANEIAP · Solo personal autorizado</p>
+  </div>
+</div>
+
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <h2><i class="fas fa-calendar-check" style="margin-right:6px"></i>SNC 2026</h2>
-    <p>Sistema de Asistencia · BQ</p>
+    <img src="LOGOS/logo snc 2026 con contorno-01.png" alt="SNC 2026">
+    <p style="color:rgba(255,255,255,.4);font-size:10px;letter-spacing:.8px;text-transform:uppercase">Sistema de Asistencia</p>
   </div>
   <ul class="nav-menu" id="nav-menu">
     <li><div class="nav-link active" data-sec="dashboard"><i class="fas fa-bolt"></i><span>Registro rápido</span></div></li>
     <li><div class="nav-link" data-sec="scanner"><i class="fas fa-qrcode"></i><span>Escáner QR</span></div></li>
-    <li><div class="nav-link" data-sec="asistentes"><i class="fas fa-users"></i><span>Asistentes</span></div></li>
-    <li><div class="nav-link" data-sec="jornadas"><i class="fas fa-clock"></i><span>Jornadas</span></div></li>
-    <li><div class="nav-link" data-sec="log"><i class="fas fa-list-check"></i><span>Asistencias</span></div></li>
-    <li><div class="nav-link" data-sec="reportes"><i class="fas fa-chart-bar"></i><span>Reportes</span></div></li>
+    <li class="nav-admin"><div class="nav-link" data-sec="asistentes"><i class="fas fa-users"></i><span>Asistentes</span></div></li>
+    <li class="nav-admin"><div class="nav-link" data-sec="jornadas"><i class="fas fa-clock"></i><span>Jornadas</span></div></li>
+    <li class="nav-admin"><div class="nav-link" data-sec="log"><i class="fas fa-list-check"></i><span>Asistencias</span></div></li>
+    <li class="nav-admin"><div class="nav-link" data-sec="reportes"><i class="fas fa-chart-bar"></i><span>Reportes</span></div></li>
     <li><div class="nav-link" data-sec="codigos"><i class="fas fa-id-card"></i><span>Credenciales QR</span></div></li>
-    <li><div class="nav-link" data-sec="config"><i class="fas fa-gear"></i><span>Configuración</span></div></li>
+    <li class="nav-admin"><div class="nav-link" data-sec="config"><i class="fas fa-gear"></i><span>Configuración</span></div></li>
   </ul>
-  <div class="sidebar-footer">SNC 2026 Barranquilla</div>
+  <div class="sidebar-footer" style="padding:12px 14px">
+    <div id="sb-user-name" style="color:rgba(255,255,255,.7);font-size:12px;font-weight:600;margin-bottom:2px"></div>
+    <div id="sb-user-role" style="font-size:10px;color:rgba(255,255,255,.35)"></div>
+  </div>
 </aside>
 
 <!-- ═══ MAIN ═══ -->
@@ -246,6 +340,16 @@ tbody tr:hover td{background:#f8faff}
         <div class="clock" id="clock">00:00:00</div>
         <div class="clock-date" id="clock-date"></div>
       </div>
+      <div class="user-badge" id="user-badge" style="display:none">
+        <div class="u-avatar" id="u-avatar">?</div>
+        <div>
+          <div class="u-name" id="u-name"></div>
+          <div class="u-role" id="u-role"></div>
+        </div>
+      </div>
+      <button class="btn-logout" id="btn-logout" style="display:none" onclick="logout()">
+        <i class="fas fa-arrow-right-from-bracket"></i> Salir
+      </button>
     </div>
   </div>
 
@@ -264,7 +368,7 @@ tbody tr:hover td{background:#f8faff}
         <h2><i class="fas fa-bolt"></i> Registro de Asistencia</h2>
         <p>Escribe cédula, nombre o código de 4 dígitos → Enter para registrar al primero</p>
         <div class="reg-row">
-          <input type="text" id="qs-input" class="reg-input" placeholder="Cédula · Nombre · Código…" autocomplete="off" inputmode="numeric">
+          <input type="text" id="qs-input" class="reg-input" placeholder="Cédula · Nombre · Código…" autocomplete="off" inputmode="text">
           <button class="reg-clear" id="qs-clear"><i class="fas fa-times"></i></button>
         </div>
         <div class="res-list" id="qs-results"></div>
@@ -575,6 +679,111 @@ tbody tr:hover td{background:#f8faff}
 
 <script>
 // ══════════════════════════════════════════
+//  AUTH — USUARIOS Y ROLES
+// ══════════════════════════════════════════
+const USUARIOS = {
+  'nathalia.quintana@aneiap.co':    {nombre:'Nathalia Quintana',         rol:'reader'},
+  'mariaa.carmona@aneiap.co':       {nombre:'María Alejandra Carmona',   rol:'reader'},
+  'elias.garcia@aneiap.co':         {nombre:'Elias David Garcia',        rol:'reader'},
+  'geraldine.mendoza@aneiap.co':    {nombre:'Geraldine Mendoza',         rol:'reader'},
+  'dylan.romero@aneiap.co':         {nombre:'Dylan Romero',              rol:'reader'},
+  'jose.villareal@aneiap.co':       {nombre:'Jose Angel Villareal',      rol:'reader'},
+  'daniel.villamizar@aneiap.co':    {nombre:'Daniel Villamizar',         rol:'reader'},
+  'alessandro.villanueva@aneiap.co':{nombre:'Alessandro Villanueva',     rol:'reader'},
+  'lucenyth.lastra@aneiap.co':      {nombre:'Lucenyth Elena Lastra',     rol:'reader'},
+  'dilan.lengua@aneiap.co':         {nombre:'Dilan Lengua',              rol:'reader'},
+  'mariaa.mendoza@aneiap.co':       {nombre:'María de los Ángeles Mendoza',rol:'reader'},
+  'santi.albadan@aneiap.co':        {nombre:'Santiago Albadan',          rol:'reader'},
+  'maria.castellanof@aneiap.co':    {nombre:'María Castellano',          rol:'reader'},
+  'moises.camargo@aneiap.co':       {nombre:'Moisés Camargo',            rol:'admin'},
+  'juan.berdugo@aneiap.co':         {nombre:'Juan Sebastián Berdugo',    rol:'admin'},
+  'diego.bermudez@aneiap.co':       {nombre:'Diego Bermúdez',            rol:'admin'},
+};
+
+function getReaderPw(){ return localStorage.getItem('snc_pw_reader')||'SNC2026'; }
+function getAdminPw(){  return localStorage.getItem('snc_pin')||'2026'; }
+
+let SESSION = null;
+
+function loadSession(){
+  try{ SESSION = JSON.parse(sessionStorage.getItem('snc_session')||'null'); }catch{ SESSION=null; }
+  return SESSION;
+}
+
+function saveSession(s){
+  SESSION = s;
+  sessionStorage.setItem('snc_session', JSON.stringify(s));
+}
+
+function doLogin(){
+  const email    = document.getElementById('login-email').value.trim().toLowerCase();
+  const password = document.getElementById('login-password').value;
+  const errEl    = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if(!email){ errEl.textContent='Selecciona tu correo.'; return; }
+  const user = USUARIOS[email];
+  if(!user){ errEl.textContent='Correo no autorizado.'; return; }
+
+  let rol = null;
+  if(password === getAdminPw() && user.rol === 'admin') rol = 'admin';
+  else if(password === getReaderPw()) rol = 'reader';
+
+  if(!rol){ errEl.textContent='Contraseña incorrecta.'; return; }
+
+  saveSession({email, nombre:user.nombre, rol});
+  applySession();
+}
+
+function logout(){
+  sessionStorage.removeItem('snc_session');
+  SESSION = null;
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-password').value='';
+  document.getElementById('login-error').textContent='';
+}
+
+function applySession(){
+  if(!SESSION) return;
+  const {nombre, rol} = SESSION;
+  const initials = nombre.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+
+  // Hide login
+  document.getElementById('login-screen').classList.add('hidden');
+
+  // Topbar badge
+  const badge = document.getElementById('user-badge');
+  const avatar = document.getElementById('u-avatar');
+  badge.style.display = 'flex';
+  avatar.textContent  = initials;
+  avatar.className    = `u-avatar ${rol}`;
+  document.getElementById('u-name').textContent = nombre;
+  document.getElementById('u-role').textContent = rol==='admin'?'Administrador':'Acreditador';
+  document.getElementById('btn-logout').style.display = 'flex';
+
+  // Sidebar user info
+  document.getElementById('sb-user-name').textContent = nombre;
+  document.getElementById('sb-user-role').textContent = rol==='admin'?'⬡ Administrador':'● Acreditador';
+
+  // Nav visibility: readers only see dashboard, scanner, codigos
+  const adminOnly = document.querySelectorAll('.nav-admin');
+  adminOnly.forEach(li => li.style.display = rol==='admin' ? '' : 'none');
+
+  // If current section is admin-only and user is reader, redirect to dashboard
+  if(rol !== 'admin' && ['asistentes','jornadas','log','reportes','config'].includes(curSec)){
+    document.querySelector('.nav-link.active')?.classList.remove('active');
+    document.querySelector('.section.active')?.classList.remove('active');
+    document.querySelector('[data-sec="dashboard"]').classList.add('active');
+    document.getElementById('sec-dashboard').classList.add('active');
+    document.getElementById('page-title').textContent = 'Registro Rápido';
+    curSec = 'dashboard';
+  }
+
+  // Initialize app after login
+  init();
+}
+
+// ══════════════════════════════════════════
 //  SUPABASE
 // ══════════════════════════════════════════
 const SUPA_URL = 'https://rvzchfvaavwaqpoaidft.supabase.co';
@@ -635,8 +844,10 @@ async function init(){
 // ══════════════════════════════════════════
 //  REALTIME
 // ══════════════════════════════════════════
+let _rtChannel = null;
 function setupRealtime(){
-  db.channel('snc2026')
+  if(_rtChannel){ db.removeChannel(_rtChannel); }
+  _rtChannel = db.channel('snc2026')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'registros'}, p=>{
       if(!C.registros.some(r=>r.id===p.new.id)) C.registros.unshift(p.new);
       updateStats();
@@ -1547,9 +1758,11 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show')); });
 
 // ══════════════════════════════════════════
-//  BOOT
+//  BOOT — verificar sesión o mostrar login
 // ══════════════════════════════════════════
-init();
+if(loadSession()){
+  applySession();
+} // else: login screen stays visible, init() called after doLogin → applySession
 </script>
 </body>
 </html>
