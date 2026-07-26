@@ -161,18 +161,20 @@ body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);co
 .chip-warn{background:#fee2e2;color:#991b1b}
 
 /* ── Success Banner ── */
-.suc-banner{border-radius:14px;padding:22px;text-align:center;display:none;animation:popIn .25s ease}
+.suc-banner{border-radius:16px;padding:24px 20px;text-align:center;display:none;animation:popIn .28s var(--ease)}
 .suc-banner.show{display:block}
 .suc-banner.ok{background:linear-gradient(135deg,#166534,#22c55e);color:#fff}
 .suc-banner.late{background:linear-gradient(135deg,#9a3412,#f97316);color:#fff}
 .suc-banner.notfound{background:linear-gradient(135deg,#991b1b,#ef4444);color:#fff}
 .suc-banner.warn{background:linear-gradient(135deg,#92400e,#f59e0b);color:#fff}
-@keyframes popIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
-.sb-icon{font-size:42px;margin-bottom:6px}
-.sb-name{font-size:21px;font-weight:700}
-.sb-time{font-size:15px;margin:5px 0 3px;opacity:.9}
-.sb-fine{font-size:34px;font-weight:800;color:#ffe066}
-.sb-detail{font-size:13px;opacity:.85;margin-top:3px}
+@keyframes popIn{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.sb-icon{font-size:44px;margin-bottom:8px}
+.sb-status{font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;opacity:.75;margin-bottom:4px}
+.sb-space{font-size:13px;font-weight:600;opacity:.85;margin:2px 0 10px;padding:4px 10px;background:rgba(255,255,255,.15);border-radius:20px;display:inline-block}
+.sb-name{font-size:23px;font-weight:800;line-height:1.15}
+.sb-time{font-size:14px;margin:6px 0 4px;opacity:.85}
+.sb-fine{font-size:34px;font-weight:800;color:#ffe066;margin-top:8px}
+.sb-detail{font-size:12px;opacity:.8;margin-top:3px}
 
 /* ── QR Scanner ── */
 .scanner-wrap{position:relative;width:100%;max-width:460px;margin:0 auto;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:4/3}
@@ -357,7 +359,7 @@ tbody tr:hover td{background:#f8faff}
     <li><div class="nav-link active" data-sec="dashboard"><i class="fas fa-bolt"></i><span>Registro rápido</span></div></li>
     <li><div class="nav-link" data-sec="scanner"><i class="fas fa-qrcode"></i><span>Escáner QR</span></div></li>
     <li class="nav-admin"><div class="nav-link" data-sec="asistentes"><i class="fas fa-users"></i><span>Asistentes</span></div></li>
-    <li class="nav-admin"><div class="nav-link" data-sec="jornadas"><i class="fas fa-clock"></i><span>Jornadas</span></div></li>
+    <li class="nav-admin"><div class="nav-link" data-sec="jornadas"><i class="fas fa-clock"></i><span>Espacios</span></div></li>
     <li class="nav-admin"><div class="nav-link" data-sec="log"><i class="fas fa-list-check"></i><span>Asistencias</span></div></li>
     <li class="nav-admin"><div class="nav-link" data-sec="reportes"><i class="fas fa-chart-bar"></i><span>Reportes</span></div></li>
     <li><div class="nav-link" data-sec="codigos"><i class="fas fa-id-card"></i><span>Credenciales QR</span></div></li>
@@ -416,7 +418,7 @@ tbody tr:hover td{background:#f8faff}
 
       <div class="card" style="padding:12px 16px">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Jornada activa</label>
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Espacio activo</label>
           <select class="form-control" id="qs-jornada" style="flex:1;max-width:360px"></select>
           <span style="font-size:12px;color:var(--muted)" id="qs-jornada-info"></span>
         </div>
@@ -435,7 +437,7 @@ tbody tr:hover td{background:#f8faff}
       <div style="max-width:460px;margin:0 auto">
         <div class="card" style="padding:14px 16px;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Jornada</label>
+            <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Espacio</label>
             <select class="form-control" id="scan-jornada" style="flex:1"></select>
           </div>
         </div>
@@ -496,8 +498,8 @@ tbody tr:hover td{background:#f8faff}
     <!-- ══ JORNADAS ══ -->
     <div id="sec-jornadas" class="section">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <h2 style="font-size:16px;font-weight:700">Jornadas del Evento</h2>
-        <button class="btn btn-primary" onclick="openModalJornada()"><i class="fas fa-plus"></i> Nueva jornada</button>
+        <h2 style="font-size:16px;font-weight:700">Espacios del Evento</h2>
+        <button class="btn btn-primary" onclick="openModalJornada()"><i class="fas fa-plus"></i> Nuevo espacio</button>
       </div>
       <div class="alert a-info"><i class="fas fa-info-circle"></i><div>Multa por retraso: <strong>$<span id="j-multa-display">600</span>/min</strong>. El sistema calcula automáticamente al registrar.</div></div>
       <div id="lista-jornadas"></div>
@@ -516,7 +518,7 @@ tbody tr:hover td{background:#f8faff}
       <div class="card">
         <div class="fbar">
           <input type="text" id="fl-search" placeholder="Buscar asistente…" oninput="renderLog()">
-          <select id="fl-jornada" onchange="renderLog()"><option value="">Todas las jornadas</option></select>
+          <select id="fl-jornada" onchange="renderLog()"><option value="">Todos los espacios</option></select>
           <select id="fl-fecha" onchange="renderLog()"><option value="">Todas las fechas</option></select>
           <select id="fl-estado" onchange="renderLog()"><option value="">Todos</option><option value="ok">A tiempo</option><option value="tarde">Con multa</option></select>
         </div>
@@ -954,7 +956,7 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 // ══════════════════════════════════════════
 //  NAVIGATION
 // ══════════════════════════════════════════
-const SEC_TITLES={dashboard:'Registro Rápido',scanner:'Escáner QR',asistentes:'Gestión de Asistentes',jornadas:'Jornadas del Evento',log:'Registro de Asistencias',reportes:'Reportes y Estadísticas',codigos:'Credenciales QR',config:'Configuración'};
+const SEC_TITLES={dashboard:'Registro Rápido',scanner:'Escáner QR',asistentes:'Gestión de Asistentes',jornadas:'Espacios del Evento',log:'Registro de Asistencias',reportes:'Reportes y Estadísticas',codigos:'Credenciales QR',config:'Configuración'};
 let curSec='dashboard';
 
 document.getElementById('nav-menu').addEventListener('click',e=>{
@@ -1005,7 +1007,7 @@ function updateStats(){
 // ══════════════════════════════════════════
 function buildJornadaSelects(){
   const sorted=[...C.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora));
-  const opts='<option value="">— Sin jornada (solo marcar hora) —</option>'+sorted.map(j=>`<option value="${j.id}">${j.fecha} ${j.hora} · ${esc(j.nombre)}</option>`).join('');
+  const opts='<option value="">— Sin espacio (solo marcar hora) —</option>'+sorted.map(j=>`<option value="${j.id}">${esc(j.nombre)} · ${j.fecha} ${j.hora.slice(0,5)}</option>`).join('');
   document.getElementById('qs-jornada').innerHTML=opts;
   document.getElementById('scan-jornada').innerHTML=opts;
   autoSelectJornada('qs-jornada');
@@ -1105,7 +1107,7 @@ async function registrar(cedula, source){
   if(!jornadaSelId){
     const bannerId=source==='scanner'?'sb-scanner':'sb-dash';
     const b=document.getElementById(bannerId);
-    b.innerHTML=`<div class="sb-icon">⚠️</div><div class="sb-name">Sin jornada seleccionada</div><div class="sb-detail">Elige la jornada activa antes de registrar asistencia.</div>`;
+    b.innerHTML=`<div class="sb-icon">⚠️</div><div class="sb-name">Sin espacio seleccionado</div><div class="sb-detail">Elige el espacio activo antes de registrar asistencia.</div>`;
     b.className='suc-banner show warn';
     if(source==='scanner'){requestAnimationFrame(qrTick);}
     return;
@@ -1134,9 +1136,9 @@ async function registrar(cedula, source){
 
   if(source==='dash'){
     clearSearch();
-    showBanner('ok','dash',{a,data});
+    showBanner('ok','dash',{a,data,j});
   } else {
-    showBanner(multa_total>0?'late':'ok','scanner',{a,data});
+    showBanner(multa_total>0?'late':'ok','scanner',{a,data,j});
   }
 }
 
@@ -1148,19 +1150,21 @@ function showBanner(type, source, ctx){
     html=`<div class="sb-icon">❌</div><div class="sb-name">${esc(ctx.nombre||'No encontrado')}</div>`;
     banner.className='suc-banner show notfound';
   } else {
-    const {a,data}=ctx;
+    const {a,data,j}=ctx;
     const hora=new Date(data.ts).toLocaleTimeString('es-CO',{hour12:false});
     const isLate=data.multa_total>0;
-    let detalle='Llegó a tiempo ✓';
-    if(data.multa_total>0){
+    const espacioNombre=j?esc(j.nombre):'';
+    let detalle='';
+    if(isLate){
       detalle=`${data.minutos_retraso} min × $${fmt(C.config.multa_min)} = $${fmt(data.multa_base)}`;
       if(data.multa_extra>0) detalle+=` + $${fmt(data.multa_extra)} (kit)`;
     }
     html=`<div class="sb-icon">${isLate?'⚠️':'✅'}</div>
+      <div class="sb-status">${isLate?'ACREDITADO CON MULTA':'SE HA ACREDITADO CORRECTAMENTE'}</div>
+      ${espacioNombre?`<div class="sb-space">${espacioNombre}</div>`:''}
       <div class="sb-name">${esc(a.nombre+' '+a.apellidos)}</div>
       <div class="sb-time">${hora}</div>
-      <div class="sb-fine">${data.multa_total>0?'$'+fmt(data.multa_total):'Sin multa'}</div>
-      <div class="sb-detail">${detalle}</div>`;
+      ${isLate?`<div class="sb-fine">$${fmt(data.multa_total)}</div><div class="sb-detail">${detalle}</div>`:''}`;
     banner.className='suc-banner show '+(isLate?'late':'ok');
   }
   banner.innerHTML=html;
