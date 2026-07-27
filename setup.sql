@@ -31,8 +31,11 @@ CREATE TABLE IF NOT EXISTS public.registros (
   minutos_retraso integer DEFAULT 0,
   multa_base      integer DEFAULT 0,
   multa_extra     integer DEFAULT 0,
-  multa_total     integer DEFAULT 0
+  multa_total     integer DEFAULT 0,
+  registrado_por  text DEFAULT ''
 );
+-- Agregar columna registrado_por a tablas existentes
+ALTER TABLE public.registros ADD COLUMN IF NOT EXISTS registrado_por text DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS public.multas_extra (
   id       uuid DEFAULT gen_random_uuid() PRIMARY KEY,
