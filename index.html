@@ -524,7 +524,7 @@ tbody tr:hover td{background:#f8faff}
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Asistente</th><th>Cédula</th><th>Capítulo</th><th>Jornada</th><th>Hora registro</th><th>Retraso</th><th>Multa</th><th></th></tr></thead>
+            <thead><tr><th>Asistente</th><th>Cédula</th><th>Capítulo</th><th>Espacio</th><th>Hora registro</th><th>Retraso</th><th>Multa</th><th>Acreditado por</th><th></th></tr></thead>
             <tbody id="tb-log"></tbody>
           </table>
         </div>
@@ -1126,9 +1126,15 @@ async function registrar(cedula, source){
   }
   const multa_total=multa_base+multa_extra;
   const ts=now.toISOString();
-  const reg={cedula,jornada_id:jornadaSelId||null,ts,minutos_retraso,multa_base,multa_extra,multa_total};
+  const registrado_por=SESSION?.email||'';
+  const reg={cedula,jornada_id:jornadaSelId||null,ts,minutos_retraso,multa_base,multa_extra,multa_total,registrado_por};
 
-  const {data,error}=await db.from('registros').insert(reg).select().single();
+  let {data,error}=await db.from('registros').insert(reg).select().single();
+  if(error && error.message && error.message.includes('registrado_por')){
+    // Columna aún no existe en BD — insertar sin ella (migración pendiente)
+    const regFallback={cedula,jornada_id:jornadaSelId||null,ts,minutos_retraso,multa_base,multa_extra,multa_total};
+    ({data,error}=await db.from('registros').insert(regFallback).select().single());
+  }
   if(error){alert('Error al registrar: '+error.message);return;}
 
   if(!C.registros.some(r=>r.id===data.id)) C.registros.unshift(data);
@@ -1509,7 +1515,7 @@ let logPage=0; const LOG_PER=30;
 function renderLog(){
   const jSel=document.getElementById('fl-jornada');
   const jVal=jSel.value;
-  jSel.innerHTML='<option value="">Todas las jornadas</option>'+[...C.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora)).map(j=>`<option value="${j.id}" ${j.id===jVal?'selected':''}>${j.fecha} ${j.hora} · ${esc(j.nombre)}</option>`).join('');
+  jSel.innerHTML='<option value="">Todos los espacios</option>'+[...C.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora)).map(j=>`<option value="${j.id}" ${j.id===jVal?'selected':''}>${esc(j.nombre)} · ${j.fecha} ${j.hora.slice(0,5)}</option>`).join('');
   const fSel=document.getElementById('fl-fecha');
   const fVal=fSel.value;
   const fechas=[...new Set(C.registros.map(r=>r.ts.slice(0,10)))].sort().reverse();
@@ -1528,11 +1534,12 @@ function renderLog(){
   logPage=Math.min(logPage,pages-1);
   const slice=regs.slice(logPage*LOG_PER,(logPage+1)*LOG_PER);
   const tbody=document.getElementById('tb-log');
-  if(!slice.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:22px">Sin registros.</td></tr>';return;}
+  if(!slice.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:22px">Sin registros.</td></tr>';return;}
   tbody.innerHTML=slice.map(r=>{
     const a=C.asistentes.find(x=>x.cedula===r.cedula);
     const j=C.jornadas.find(x=>x.id===r.jornada_id);
     const dt=new Date(r.ts);
+    const acreditante=r.registrado_por?esc(USUARIOS[r.registrado_por]?.nombre||r.registrado_por):'<span style="color:var(--muted)">—</span>';
     return `<tr>
       <td>${a?esc(a.nombre+' '+a.apellidos):`<span style="color:var(--muted)">${r.cedula}</span>`}</td>
       <td>${r.cedula}</td>
@@ -1541,6 +1548,7 @@ function renderLog(){
       <td style="font-variant-numeric:tabular-nums">${dt.toLocaleDateString('es-CO')} <strong>${dt.toLocaleTimeString('es-CO',{hour12:false})}</strong></td>
       <td>${r.minutos_retraso>0?`<span class="badge b-danger">+${r.minutos_retraso} min</span>`:'<span class="badge b-ok">A tiempo</span>'}</td>
       <td>${r.multa_total>0?`<span class="badge b-danger">$${fmt(r.multa_total)}</span>`:'<span class="badge b-ok">$0</span>'}</td>
+      <td style="font-size:12px">${acreditante}</td>
       <td><button class="btn btn-danger btn-sm" onclick="deleteRegistro('${r.id}')"><i class="fas fa-trash"></i></button></td>
     </tr>`;
   }).join('');
