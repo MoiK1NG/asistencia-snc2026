@@ -93,7 +93,7 @@ body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);co
 .role-tag.reader{background:#d1fae5;color:#065f46}
 
 /* sidebar logo image */
-.sidebar-logo img{width:100%;max-width:130px;display:block;margin-bottom:6px;filter:brightness(0) invert(1)}
+.sidebar-logo img{width:100%;max-width:130px;display:block;margin-bottom:6px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))}
 
 /* ── Loader overlay ── */
 #loader{position:fixed;inset:0;background:rgba(13,43,107,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff;gap:16px}
@@ -673,6 +673,20 @@ tbody tr:hover td{background:#f8faff}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-jornada')">Cancelar</button>
       <button class="btn btn-primary" id="mj-save-btn" onclick="saveJornada()"><i class="fas fa-save"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL INASISTENCIAS ══ -->
+<div class="overlay" id="modal-inasist">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-hdr"><h2><i class="fas fa-user-slash" style="color:var(--warning);margin-right:8px"></i>Inasistencias</h2><button class="modal-close" onclick="closeModal('modal-inasist')">&times;</button></div>
+    <p id="mi-label" style="font-size:13px;color:var(--muted);margin-bottom:4px"></p>
+    <p id="mi-info" style="font-size:13px;font-weight:600;margin-bottom:12px"></p>
+    <div id="mi-list" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:14px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-inasist')">Cancelar</button>
+      <button class="btn btn-danger" id="mi-save-btn" onclick="applyInasistencias()"><i class="fas fa-gavel"></i> Aplicar multas</button>
     </div>
   </div>
 </div>
@@ -1458,6 +1472,7 @@ function renderJornadas(){
         <div class="jcard-time">${j.hora}</div>
         <div class="jcard-info"><h3>${esc(j.nombre)}</h3><p><span class="badge b-info">${TIPOS[j.tipo]||j.tipo}</span>&nbsp;${nr} registro${nr!==1?'s':''}</p></div>
         <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="calcularInasistencias('${j.id}')" title="Calcular inasistencias"><i class="fas fa-user-slash"></i></button>
           <button class="btn btn-ghost btn-sm" onclick="openModalJornada('${j.id}')"><i class="fas fa-edit"></i></button>
           <button class="btn btn-danger btn-sm" onclick="deleteJornada('${j.id}')"><i class="fas fa-trash"></i></button>
         </div>
@@ -1717,6 +1732,68 @@ async function saveMultaManual(){
     alert(`Multa de $${fmt(monto)} aplicada.`);
   }catch(e){alert('Error: '+e.message);}
   finally{btn.disabled=false;}
+}
+
+// ── Inasistencias bulk ──
+let inasistJornada=null, inasistTargets=[];
+const MULTA_POR_TIPO={jornada:50000,actividad:50000,visita:35000,taller:150000};
+const CONCEPTO_POR_TIPO={jornada:'Inasistencia actividad/espacio',actividad:'Inasistencia actividad/espacio',visita:'Inasistencia visita industrial',taller:'No-show taller SENA'};
+
+async function calcularInasistencias(jornada_id){
+  const j=C.jornadas.find(x=>x.id===jornada_id);
+  if(!j) return;
+  await loadRegistrosIfNeeded();
+  const monto=MULTA_POR_TIPO[j.tipo]||50000;
+  const registrados=new Set(C.registros.filter(r=>r.jornada_id===jornada_id).map(r=>r.cedula));
+  const ausentes=C.asistentes.filter(a=>!registrados.has(a.cedula));
+  inasistJornada=j;
+  inasistTargets=ausentes;
+  document.getElementById('mi-label').textContent=`Espacio: ${esc(j.nombre)} · ${j.fecha} ${j.hora.slice(0,5)}`;
+  document.getElementById('mi-info').textContent=`${ausentes.length} ausente${ausentes.length!==1?'s':''} · Multa: $${fmt(monto)} por persona`;
+  if(!ausentes.length){
+    document.getElementById('mi-list').innerHTML='<p style="padding:20px;text-align:center;color:var(--muted)"><i class="fas fa-check-circle" style="color:var(--success);margin-right:6px"></i>Todos los asistentes tienen registro para este espacio.</p>';
+    document.getElementById('mi-save-btn').disabled=true;
+  } else {
+    document.getElementById('mi-save-btn').disabled=false;
+    document.getElementById('mi-list').innerHTML=`<table style="width:100%;font-size:13px;border-collapse:collapse">
+      <thead><tr style="background:var(--bg)">
+        <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="mi-all" onchange="toggleAllInasist(this)" checked>&nbsp;Nombre</label></th>
+        <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Cédula</th>
+        <th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)">Capítulo</th>
+      </tr></thead>
+      <tbody>${ausentes.map((a,i)=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 12px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="mi-chk" data-i="${i}" checked>&nbsp;${esc(a.nombre+' '+a.apellidos)}</label></td>
+        <td style="padding:6px 12px;color:var(--muted)">${esc(a.cedula)}</td>
+        <td style="padding:6px 12px;color:var(--muted)">${esc(a.capitulo||'—')}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+  document.getElementById('modal-inasist').classList.add('show');
+}
+
+function toggleAllInasist(cb){
+  document.querySelectorAll('.mi-chk').forEach(c=>c.checked=cb.checked);
+}
+
+async function applyInasistencias(){
+  if(!inasistJornada||!inasistTargets.length) return;
+  const indices=[...document.querySelectorAll('.mi-chk:checked')].map(c=>parseInt(c.dataset.i));
+  if(!indices.length){alert('Selecciona al menos un asistente.');return;}
+  const btn=document.getElementById('mi-save-btn');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Aplicando…';
+  const monto=MULTA_POR_TIPO[inasistJornada.tipo]||50000;
+  const concepto=CONCEPTO_POR_TIPO[inasistJornada.tipo]||'Inasistencia actividad/espacio';
+  const nota=`Inasistencia: ${inasistJornada.nombre} (${inasistJornada.fecha})`;
+  const ts=new Date().toISOString();
+  try{
+    const inserts=indices.map(i=>({cedula:inasistTargets[i].cedula,monto,concepto,nota,ts}));
+    const {error}=await db.from('multas_extra').insert(inserts);
+    if(error) throw error;
+    inserts.forEach(r=>C.multas_extra.push(r));
+    closeModal('modal-inasist');
+    alert(`${indices.length} multa${indices.length!==1?'s':''} de inasistencia aplicada${indices.length!==1?'s':''}.`);
+  }catch(e){alert('Error: '+e.message);}
+  finally{btn.disabled=false; btn.innerHTML='<i class="fas fa-gavel"></i> Aplicar multas';}
 }
 
 // ══════════════════════════════════════════
