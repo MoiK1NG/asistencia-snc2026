@@ -360,6 +360,7 @@ tbody tr:hover td{background:#f8faff}
     <li><div class="nav-link" data-sec="scanner"><i class="fas fa-qrcode"></i><span>Escáner QR</span></div></li>
     <li class="nav-admin"><div class="nav-link" data-sec="asistentes"><i class="fas fa-users"></i><span>Asistentes</span></div></li>
     <li class="nav-admin"><div class="nav-link" data-sec="jornadas"><i class="fas fa-clock"></i><span>Espacios</span></div></li>
+    <li class="nav-admin"><div class="nav-link" data-sec="faltantes"><i class="fas fa-clipboard-list"></i><span>Faltantes</span></div></li>
     <li class="nav-admin"><div class="nav-link" data-sec="log"><i class="fas fa-list-check"></i><span>Asistencias</span></div></li>
     <li class="nav-admin"><div class="nav-link" data-sec="reportes"><i class="fas fa-chart-bar"></i><span>Reportes</span></div></li>
     <li><div class="nav-link" data-sec="codigos"><i class="fas fa-id-card"></i><span>Credenciales QR</span></div></li>
@@ -503,6 +504,23 @@ tbody tr:hover td{background:#f8faff}
       </div>
       <div class="alert a-info"><i class="fas fa-info-circle"></i><div>Multa por retraso: <strong>$<span id="j-multa-display">600</span>/min</strong>. El sistema calcula automáticamente al registrar.</div></div>
       <div id="lista-jornadas"></div>
+    </div>
+
+    <!-- ══ FALTANTES ══ -->
+    <div id="sec-faltantes" class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <h2 style="font-size:16px;font-weight:700">Pendientes de acreditación</h2>
+        <button class="btn btn-ghost" onclick="renderFaltantesSection()"><i class="fas fa-rotate-right"></i> Actualizar</button>
+      </div>
+      <div class="card" style="padding:10px 14px;margin-bottom:14px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <input type="text" id="flt-search" class="form-control" placeholder="Buscar persona por nombre, cédula o capítulo…" oninput="filterFaltantesSection()" style="flex:1;min-width:200px">
+          <select class="form-control" id="flt-fecha" onchange="renderFaltantesSection()" style="min-width:160px">
+            <option value="">Todos los espacios</option>
+          </select>
+        </div>
+      </div>
+      <div id="faltantes-section-list"></div>
     </div>
 
     <!-- ══ LOG ══ -->
@@ -858,7 +876,7 @@ function applySession(){
   adminOnly.forEach(li => li.style.display = rol==='admin' ? '' : 'none');
 
   // If current section is admin-only and user is reader, redirect to dashboard
-  if(rol !== 'admin' && ['asistentes','jornadas','log','reportes','config'].includes(curSec)){
+  if(rol !== 'admin' && ['asistentes','jornadas','faltantes','log','reportes','config'].includes(curSec)){
     document.querySelector('.nav-link.active')?.classList.remove('active');
     document.querySelector('.section.active')?.classList.remove('active');
     document.querySelector('[data-sec="dashboard"]').classList.add('active');
@@ -987,7 +1005,7 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 // ══════════════════════════════════════════
 //  NAVIGATION
 // ══════════════════════════════════════════
-const SEC_TITLES={dashboard:'Registro Rápido',scanner:'Escáner QR',asistentes:'Gestión de Asistentes',jornadas:'Espacios del Evento',log:'Registro de Asistencias',reportes:'Reportes y Estadísticas',codigos:'Credenciales QR',config:'Configuración'};
+const SEC_TITLES={dashboard:'Registro Rápido',scanner:'Escáner QR',asistentes:'Gestión de Asistentes',jornadas:'Espacios del Evento',faltantes:'Pendientes de Acreditación',log:'Registro de Asistencias',reportes:'Reportes y Estadísticas',codigos:'Credenciales QR',config:'Configuración'};
 let curSec='dashboard';
 
 document.getElementById('nav-menu').addEventListener('click',e=>{
@@ -1004,6 +1022,7 @@ document.getElementById('nav-menu').addEventListener('click',e=>{
   document.getElementById('page-title').textContent=SEC_TITLES[sec];
   if(sec==='log'){ loadRegistrosIfNeeded().then(renderLog); }
   if(sec==='reportes'){ loadRegistrosIfNeeded().then(renderReportes); }
+  if(sec==='faltantes'){ loadRegistrosIfNeeded().then(renderFaltantesSection); }
   if(sec==='asistentes'){ updateCapDatalist(); renderAsistentes(); }
   if(sec==='jornadas') renderJornadas();
   if(sec==='codigos') renderCodigos();
@@ -1891,6 +1910,122 @@ function copiarFaltantes(){
   if(!faltantesData.length){alert('No hay faltantes para copiar.');return;}
   const texto=faltantesData.map(a=>`${a.nombre} ${a.apellidos} (${a.cedula}) — ${a.capitulo||'Sin capítulo'}`).join('\n');
   navigator.clipboard.writeText(texto).then(()=>alert('Lista copiada al portapapeles.')).catch(()=>alert('No se pudo copiar. Selecciona manualmente.'));
+}
+
+// ── Sección Faltantes ──
+const TIPOS_FAL={jornada:'Jornada',actividad:'Actividad',visita:'Visita industrial',taller:'Taller SENA'};
+let faltantesSectionData=[];
+
+function renderFaltantesSection(){
+  if(!C.jornadas.length){
+    document.getElementById('faltantes-section-list').innerHTML='<div class="card" style="text-align:center;padding:32px;color:var(--muted)"><i class="fas fa-clock" style="font-size:32px;margin-bottom:8px;display:block"></i><p>No hay espacios configurados.</p></div>';
+    return;
+  }
+  // Populate date filter
+  const sel=document.getElementById('flt-fecha');
+  const curFecha=sel.value;
+  const fechas=[...new Set(C.jornadas.map(j=>j.fecha))].sort();
+  sel.innerHTML='<option value="">Todos los espacios</option>'+fechas.map(f=>{
+    const dt=new Date(f+'T12:00');
+    const label=dt.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'long'});
+    return `<option value="${f}"${f===curFecha?' selected':''}>${label}</option>`;
+  }).join('');
+  const sorted=[...C.jornadas].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora.localeCompare(b.hora));
+  const byFecha=curFecha?sorted.filter(j=>j.fecha===curFecha):sorted;
+  faltantesSectionData=byFecha.map(j=>{
+    const registrados=new Set(C.registros.filter(r=>r.jornada_id===j.id).map(r=>r.cedula));
+    const ausentes=C.asistentes.filter(a=>!registrados.has(a.cedula))
+      .sort((a,b)=>(a.capitulo||'').localeCompare(b.capitulo||'')||a.nombre.localeCompare(b.nombre));
+    return {j,ausentes,total:C.asistentes.length,acred:C.asistentes.length-ausentes.length};
+  });
+  document.getElementById('flt-search').value='';
+  renderFaltantesSectionCards(faltantesSectionData,false);
+}
+
+function renderFaltantesSectionCards(data,autoExpand){
+  const container=document.getElementById('faltantes-section-list');
+  if(!data.length){container.innerHTML='<div class="card" style="text-align:center;padding:32px;color:var(--muted)">No hay espacios con faltantes.</div>';return;}
+  container.innerHTML=data.map(({j,ausentes,total,acred})=>{
+    const pct=total>0?Math.round(acred/total*100):0;
+    const dt=new Date(j.fecha+'T12:00');
+    const fechaLabel=dt.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
+    const gruposHtml=ausentes.length?renderFaltantesGrupos(ausentes):'';
+    return `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">${fechaLabel} &nbsp;·&nbsp; ${j.hora.slice(0,5)}</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:5px">${esc(j.nombre)}</div>
+          <span class="badge b-info">${TIPOS_FAL[j.tipo]||j.tipo}</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <div style="text-align:center;padding:6px 12px;background:#d1fae5;border-radius:var(--r-sm);min-width:52px">
+            <div style="font-size:18px;font-weight:800;color:var(--success)">${acred}</div>
+            <div style="font-size:10px;color:var(--success);font-weight:600">acreditados</div>
+          </div>
+          <div style="text-align:center;padding:6px 12px;background:${ausentes.length?'#fee2e2':'#d1fae5'};border-radius:var(--r-sm);min-width:52px">
+            <div style="font-size:18px;font-weight:800;color:${ausentes.length?'var(--danger)':'var(--success)'}">${ausentes.length}</div>
+            <div style="font-size:10px;color:${ausentes.length?'var(--danger)':'var(--success)'};font-weight:600">faltantes</div>
+          </div>
+          <div style="text-align:center;padding:6px 12px;background:var(--bg);border-radius:var(--r-sm);min-width:52px">
+            <div style="font-size:18px;font-weight:800;color:var(--primary)">${total}</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600">total</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:11px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>Progreso de acreditación</span><span style="font-weight:700;color:${pct===100?'var(--success)':'var(--primary)'}">${pct}%</span>
+        </div>
+        <div style="height:8px;background:var(--border2);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${pct===100?'var(--success)':'linear-gradient(90deg,var(--primary2),var(--green2))'};border-radius:99px"></div>
+        </div>
+      </div>
+      ${ausentes.length?`
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+        <button class="btn btn-ghost btn-sm" style="font-size:12px;margin-bottom:8px" id="flt-btn-${j.id}" onclick="toggleFaltantesLista('${j.id}')">
+          <i class="fas fa-chevron-down" style="font-size:10px;margin-right:4px"></i> Ver ${ausentes.length} faltante${ausentes.length!==1?'s':''}
+        </button>
+        <div id="flt-lista-${j.id}" style="display:${autoExpand?'block':'none'}">${gruposHtml}</div>
+      </div>`:`<div style="margin-top:10px;font-size:12px;color:var(--success);font-weight:600"><i class="fas fa-check-circle" style="margin-right:4px"></i>¡Todos acreditados!</div>`}
+    </div>`;
+  }).join('');
+}
+
+function renderFaltantesGrupos(ausentes){
+  const g={};
+  ausentes.forEach(a=>{const k=a.capitulo||'Sin capítulo';(g[k]||(g[k]=[])).push(a);});
+  return Object.keys(g).sort().map(cap=>`
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;padding:3px 0 5px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--primary-light)">
+        <span>${esc(cap)}</span><span class="badge b-info">${g[cap].length}</span>
+      </div>
+      ${g[cap].map(a=>`<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center">
+        <span style="flex:1;font-weight:500">${esc(a.nombre+' '+a.apellidos)}</span>
+        <span style="color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px">${esc(a.cedula)}</span>
+      </div>`).join('')}
+    </div>`).join('');
+}
+
+function toggleFaltantesLista(jid){
+  const el=document.getElementById('flt-lista-'+jid);
+  const btn=document.getElementById('flt-btn-'+jid);
+  const item=faltantesSectionData.find(x=>x.j.id===jid);
+  const n=item?item.ausentes.length:0;
+  const isHidden=el.style.display==='none';
+  el.style.display=isHidden?'block':'none';
+  btn.innerHTML=isHidden
+    ?'<i class="fas fa-chevron-up" style="font-size:10px;margin-right:4px"></i> Ocultar lista'
+    :`<i class="fas fa-chevron-down" style="font-size:10px;margin-right:4px"></i> Ver ${n} faltante${n!==1?'s':''}`;
+}
+
+function filterFaltantesSection(){
+  const q=document.getElementById('flt-search').value.trim().toLowerCase();
+  if(!q){renderFaltantesSectionCards(faltantesSectionData,false);return;}
+  const filtered=faltantesSectionData.map(({j,ausentes,total,acred})=>({
+    j,total,acred,
+    ausentes:ausentes.filter(a=>(a.nombre+' '+a.apellidos).toLowerCase().includes(q)||a.cedula.includes(q)||(a.capitulo||'').toLowerCase().includes(q))
+  })).filter(x=>x.ausentes.length>0);
+  renderFaltantesSectionCards(filtered,true);
 }
 
 // ══════════════════════════════════════════
