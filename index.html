@@ -677,6 +677,23 @@ tbody tr:hover td{background:#f8faff}
   </div>
 </div>
 
+<!-- ══ MODAL FALTANTES ══ -->
+<div class="overlay" id="modal-faltantes">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-hdr">
+      <h2><i class="fas fa-clipboard-list" style="color:var(--primary2);margin-right:8px"></i>Pendientes de acreditación</h2>
+      <button class="modal-close" onclick="closeModal('modal-faltantes')">&times;</button>
+    </div>
+    <div id="mf-header" style="margin-bottom:12px"></div>
+    <input type="text" id="mf-search" class="form-control" placeholder="Buscar por nombre, cédula o capítulo…" oninput="filterFaltantes()" style="margin-bottom:12px">
+    <div id="mf-list" style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-sm)"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-faltantes')">Cerrar</button>
+      <button class="btn btn-primary" onclick="copiarFaltantes()"><i class="fas fa-copy"></i> Copiar lista</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL INASISTENCIAS ══ -->
 <div class="overlay" id="modal-inasist">
   <div class="modal" style="max-width:540px">
@@ -1472,6 +1489,7 @@ function renderJornadas(){
         <div class="jcard-time">${j.hora}</div>
         <div class="jcard-info"><h3>${esc(j.nombre)}</h3><p><span class="badge b-info">${TIPOS[j.tipo]||j.tipo}</span>&nbsp;${nr} registro${nr!==1?'s':''}</p></div>
         <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-sm" style="color:var(--primary2);border-color:var(--primary2)" onclick="verFaltantes('${j.id}')" title="Ver faltantes"><i class="fas fa-clipboard-list"></i></button>
           <button class="btn btn-ghost btn-sm" style="color:var(--warning);border-color:var(--warning)" onclick="calcularInasistencias('${j.id}')" title="Calcular inasistencias"><i class="fas fa-user-slash"></i></button>
           <button class="btn btn-ghost btn-sm" onclick="openModalJornada('${j.id}')"><i class="fas fa-edit"></i></button>
           <button class="btn btn-danger btn-sm" onclick="deleteJornada('${j.id}')"><i class="fas fa-trash"></i></button>
@@ -1794,6 +1812,85 @@ async function applyInasistencias(){
     alert(`${indices.length} multa${indices.length!==1?'s':''} de inasistencia aplicada${indices.length!==1?'s':''}.`);
   }catch(e){alert('Error: '+e.message);}
   finally{btn.disabled=false; btn.innerHTML='<i class="fas fa-gavel"></i> Aplicar multas';}
+}
+
+// ── Faltantes por espacio ──
+let faltantesData=[];
+
+async function verFaltantes(jornada_id){
+  const j=C.jornadas.find(x=>x.id===jornada_id);
+  if(!j) return;
+  showLoader('Cargando registros…');
+  await loadRegistrosIfNeeded();
+  hideLoader();
+  const TIPOS={jornada:'Jornada',actividad:'Actividad',visita:'Visita industrial',taller:'Taller SENA'};
+  const registrados=new Set(C.registros.filter(r=>r.jornada_id===jornada_id).map(r=>r.cedula));
+  faltantesData=[...C.asistentes]
+    .filter(a=>!registrados.has(a.cedula))
+    .sort((a,b)=>(a.capitulo||'').localeCompare(b.capitulo||'')||a.nombre.localeCompare(b.nombre));
+  const total=C.asistentes.length;
+  const falta=faltantesData.length;
+  const acred=total-falta;
+  document.getElementById('mf-search').value='';
+  document.getElementById('mf-header').innerHTML=`
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:13px;color:var(--muted)">${esc(j.nombre)} · ${j.fecha} ${j.hora.slice(0,5)}</div>
+        <div style="font-size:13px;margin-top:4px"><span class="badge b-info">${TIPOS[j.tipo]||j.tipo}</span></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="text-align:center;padding:8px 14px;background:var(--bg);border-radius:var(--r-sm)">
+          <div style="font-size:20px;font-weight:800;color:var(--success)">${acred}</div>
+          <div style="font-size:11px;color:var(--muted)">acreditados</div>
+        </div>
+        <div style="text-align:center;padding:8px 14px;background:#fee2e2;border-radius:var(--r-sm)">
+          <div style="font-size:20px;font-weight:800;color:var(--danger)">${falta}</div>
+          <div style="font-size:11px;color:var(--muted)">faltantes</div>
+        </div>
+        <div style="text-align:center;padding:8px 14px;background:var(--bg);border-radius:var(--r-sm)">
+          <div style="font-size:20px;font-weight:800;color:var(--primary)">${total}</div>
+          <div style="font-size:11px;color:var(--muted)">total</div>
+        </div>
+      </div>
+    </div>`;
+  renderFaltantesList(faltantesData);
+  document.getElementById('modal-faltantes').classList.add('show');
+}
+
+function renderFaltantesList(lista){
+  if(!lista.length){
+    document.getElementById('mf-list').innerHTML='<p style="padding:20px;text-align:center;color:var(--muted)"><i class="fas fa-check-circle" style="color:var(--success);margin-right:6px"></i>¡Todos acreditados para este espacio!</p>';
+    return;
+  }
+  // Group by capitulo
+  const grupos={};
+  lista.forEach(a=>{const k=a.capitulo||'Sin capítulo';(grupos[k]||(grupos[k]=[])).push(a);});
+  document.getElementById('mf-list').innerHTML=Object.keys(grupos).sort().map(cap=>`
+    <div style="border-bottom:1px solid var(--border)">
+      <div style="padding:7px 12px;background:var(--primary-light);font-size:11px;font-weight:700;color:var(--primary);letter-spacing:.5px;text-transform:uppercase;display:flex;justify-content:space-between">
+        <span>${esc(cap)}</span><span class="badge b-info">${grupos[cap].length}</span>
+      </div>
+      ${grupos[cap].map(a=>`<div style="padding:7px 14px;display:flex;gap:10px;align-items:center;border-top:1px solid var(--border)">
+        <div style="flex:1;font-size:13px;font-weight:600">${esc(a.nombre+' '+a.apellidos)}</div>
+        <div style="font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums">${esc(a.cedula)}</div>
+      </div>`).join('')}
+    </div>`).join('');
+}
+
+function filterFaltantes(){
+  const q=document.getElementById('mf-search').value.trim().toLowerCase();
+  if(!q){renderFaltantesList(faltantesData);return;}
+  renderFaltantesList(faltantesData.filter(a=>
+    (a.nombre+' '+a.apellidos).toLowerCase().includes(q)||
+    a.cedula.includes(q)||
+    (a.capitulo||'').toLowerCase().includes(q)
+  ));
+}
+
+function copiarFaltantes(){
+  if(!faltantesData.length){alert('No hay faltantes para copiar.');return;}
+  const texto=faltantesData.map(a=>`${a.nombre} ${a.apellidos} (${a.cedula}) — ${a.capitulo||'Sin capítulo'}`).join('\n');
+  navigator.clipboard.writeText(texto).then(()=>alert('Lista copiada al portapapeles.')).catch(()=>alert('No se pudo copiar. Selecciona manualmente.'));
 }
 
 // ══════════════════════════════════════════
