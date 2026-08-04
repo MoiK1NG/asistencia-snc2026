@@ -439,7 +439,7 @@ tbody tr:hover td{background:#f8faff}
         <div class="card" style="padding:14px 16px;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Espacio</label>
-            <select class="form-control" id="scan-jornada" style="flex:1"></select>
+            <select class="form-control" id="scan-jornada" style="flex:1" onchange="document.getElementById('sb-scanner').classList.remove('show')"></select>
           </div>
         </div>
 
@@ -565,8 +565,8 @@ tbody tr:hover td{background:#f8faff}
           <div class="tbl-wrap"><table><thead><tr><th>Capítulo</th><th>Asistentes</th><th>Registros</th><th>Multas</th></tr></thead><tbody id="tb-cap"></tbody></table></div>
         </div>
         <div class="card">
-          <div class="card-title"><i class="fas fa-clock"></i> Por jornada</div>
-          <div class="tbl-wrap"><table><thead><tr><th>Jornada</th><th>Registros</th><th>Con multa</th><th>Total</th></tr></thead><tbody id="tb-jrep"></tbody></table></div>
+          <div class="card-title"><i class="fas fa-clock"></i> Por espacio</div>
+          <div class="tbl-wrap"><table><thead><tr><th>Espacio</th><th>Registros</th><th>Con multa</th><th>Total multas</th></tr></thead><tbody id="tb-jrep"></tbody></table></div>
         </div>
       </div>
       <div class="card">
@@ -1159,7 +1159,7 @@ async function registrar(cedula, source){
     const b=document.getElementById(bannerId);
     b.innerHTML=`<div class="sb-icon">⚠️</div><div class="sb-name">Sin espacio seleccionado</div><div class="sb-detail">Elige el espacio activo antes de registrar asistencia.</div>`;
     b.className='suc-banner show warn';
-    if(source==='scanner'){requestAnimationFrame(qrTick);}
+    if(source==='scanner'){lastQRData=''; resumeQR();}
     return;
   }
   const j=jornadaSelId?C.jornadas.find(x=>x.id===jornadaSelId):null;
@@ -1208,20 +1208,13 @@ function showBanner(type, source, ctx){
   } else {
     const {a,data,j}=ctx;
     const hora=new Date(data.ts).toLocaleTimeString('es-CO',{hour12:false});
-    const isLate=data.multa_total>0;
     const espacioNombre=j?esc(j.nombre):'';
-    let detalle='';
-    if(isLate){
-      detalle=`${data.minutos_retraso} min × $${fmt(C.config.multa_min)} = $${fmt(data.multa_base)}`;
-      if(data.multa_extra>0) detalle+=` + $${fmt(data.multa_extra)} (kit)`;
-    }
-    html=`<div class="sb-icon">${isLate?'⚠️':'✅'}</div>
-      <div class="sb-status">${isLate?'ACREDITADO CON MULTA':'SE HA ACREDITADO CORRECTAMENTE'}</div>
+    html=`<div class="sb-icon">✅</div>
+      <div class="sb-status">SE HA ACREDITADO CORRECTAMENTE</div>
       ${espacioNombre?`<div class="sb-space">${espacioNombre}</div>`:''}
       <div class="sb-name">${esc(a.nombre+' '+a.apellidos)}</div>
-      <div class="sb-time">${hora}</div>
-      ${isLate?`<div class="sb-fine">$${fmt(data.multa_total)}</div><div class="sb-detail">${detalle}</div>`:''}`;
-    banner.className='suc-banner show '+(isLate?'late':'ok');
+      <div class="sb-time">${hora}</div>`;
+    banner.className='suc-banner show ok';
   }
   banner.innerHTML=html;
   clearTimeout(banner._t);
